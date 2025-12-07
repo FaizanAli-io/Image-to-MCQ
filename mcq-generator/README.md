@@ -1,36 +1,172 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎓 AI-Powered MCQ Generator
 
-## Getting Started
+Transform your study materials into professional quizzes in seconds using AI vision technology.
 
-First, run the development server:
+## 📋 Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+The MCQ Generator is a modern web application that uses AI to automatically generate high-quality multiple-choice questions, assignments, and various quiz types from uploaded images of textbook pages, revision guides, or study materials. Built specifically for GCSE and A-Level education standards.
+
+## ✨ Key Features
+
+### 🤖 AI-Powered Question Generation
+- **Vision AI Integration**: Analyzes images of study materials using OpenRouter's vision models
+- **Multiple Quiz Types**: 6 different quiz formats tailored for educational needs
+- **Smart Answer Randomization**: Fisher-Yates algorithm prevents LLM bias in answer positioning
+- **Flexible Question Types**: MCQ, True/False, Short Answer, Long Answer
+
+### 📚 Six Quiz Types
+
+1. **Retrieval Quiz** (30 questions)
+   - 3 topics with 10 questions each
+   - Spaced repetition structure (last week, 2-3 weeks ago, 4+ weeks ago)
+   - Mix of AO1 (recall) and AO2 (application) questions
+
+2. **Mini Quiz** (19-24 questions)
+   - Structured around Assessment Objectives (AO1, AO2, AO3)
+   - Bloom's Taxonomy progression
+   - Includes self-reflection and mark schemes
+
+3. **Assignment** (40 marks)
+   - 4 exam-style questions (10 marks each)
+   - Proper AO distribution
+   - Difficulty progression
+   - Detailed mark schemes
+
+4. **Application Practice** (12 questions)
+   - 3-tier difficulty structure
+   - Novel contexts for knowledge transfer
+   - Worked examples included
+
+5. **Marks Per Point** (12 questions)
+   - Explanation and description questions only
+   - 2-4 marks per question
+   - Clear mark schemes
+
+6. **Specific Technique** (12 questions)
+   - Focused exam technique practice
+   - Variety of topics, same technique
+
+### 🎨 Professional UI/UX
+- Modern, clean interface with professional color scheme
+- Responsive design (mobile, tablet, desktop)
+- Drag-and-drop image upload
+- Real-time progress indicators
+- Smooth animations and transitions
+
+### 📥 Export Options
+- **Quiz PDF**: Clean question paper without answers
+- **Answer Key PDF**: Separate document with correct answers
+- Professional formatting ready for printing
+
+## 🛠️ Technology Stack
+
+- **Framework**: Next.js 16 (React 19)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS v4
+- **AI Integration**: OpenRouter API (supports multiple vision models)
+- **PDF Generation**: jsPDF
+- **Icons**: Lucide React
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ installed
+- OpenRouter API key (get one free at [openrouter.ai](https://openrouter.ai))
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd mcq-generator
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   
+   Create a `.env.local` file in the `mcq-generator` directory:
+   ```env
+   OPENAI_API_KEY=your-openrouter-api-key-here
+   ```
+
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Open your browser**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## 📖 How to Use
+
+1. **Select Education Level**: Choose between GCSE or A-Level
+2. **Choose Quiz Type**: Select from 6 different quiz formats
+3. **Upload Images**: 
+   - Single image for most quiz types
+   - 3 images for Retrieval Quiz (one per topic)
+4. **Generate**: Click the generate button and wait 10-15 seconds
+5. **Download**: Get your quiz PDF and answer key
+
+## 🎯 Educational Standards
+
+### Assessment Objectives (AO)
+- **AO1**: Knowledge and understanding
+- **AO2**: Application of knowledge
+- **AO3**: Analysis and evaluation
+
+### Supported Exam Boards
+- **GCSE**: AQA Science standards
+- **A-Level**: OCR Biology standards
+
+## 🔧 Configuration
+
+### Supported Vision Models
+
+The application uses OpenRouter and supports various free vision models:
+- `qwen/qwen-2-vl-7b-instruct:free` (default)
+- `meta-llama/llama-3.2-11b-vision-instruct:free`
+- `google/gemini-flash-1.5-8b`
+
+To change the model, edit `mcq-generator/lib/openai.ts` line 62.
+
+### Customizing Quiz Types
+
+Quiz type prompts can be customized in `mcq-generator/app/api/generate-questions/route.ts`
+
+## 🏗️ Project Structure
+
+```
+mcq-generator/
+├── app/
+│   ├── api/
+│   │   └── generate-questions/
+│   │       └── route.ts          # API endpoint for question generation
+│   ├── globals.css               # Global styles and Tailwind imports
+│   ├── layout.tsx                # Root layout with metadata
+│   └── page.tsx                  # Main application page
+├── components/
+│   ├── ImageUploader.tsx         # Drag-and-drop image upload
+│   ├── QuestionTypeSelector.tsx  # Quiz configuration panel
+│   ├── QuestionDisplay.tsx       # Question preview cards
+│   ├── LoadingSpinner.tsx        # Loading state component
+│   └── PDFGenerator.tsx          # PDF export functionality
+├── lib/
+│   ├── openai.ts                 # AI integration and answer randomization
+│   ├── pdf-utils.ts              # PDF generation utilities
+│   ├── types.ts                  # TypeScript type definitions
+│   └── utils.ts                  # Utility functions
+└── .env.local                    # Environment variables (not in git)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔐 Security & Privacy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- API keys are stored in environment variables (never committed to git)
+- All processing happens server-side
+- Images are not stored permanently
+- No user data is collected or tracked
