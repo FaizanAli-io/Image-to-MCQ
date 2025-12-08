@@ -63,7 +63,7 @@ The MCQ Generator is a modern web application that uses AI to automatically gene
 - **Framework**: Next.js 16 (React 19)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS v4
-- **AI Integration**: OpenRouter API (supports multiple vision models)
+- **AI Integration**: OpenAI API (GPT-4o with vision)
 - **PDF Generation**: jsPDF
 - **Icons**: Lucide React
 
@@ -72,7 +72,7 @@ The MCQ Generator is a modern web application that uses AI to automatically gene
 ### Prerequisites
 
 - Node.js 18+ installed
-- OpenRouter API key (get one free at [openrouter.ai](https://openrouter.ai))
+- OpenAI API key (get one at [platform.openai.com](https://platform.openai.com/api-keys))
 
 ### Installation
 
@@ -91,7 +91,7 @@ The MCQ Generator is a modern web application that uses AI to automatically gene
    
    Create a `.env.local` file in the `mcq-generator` directory:
    ```env
-   OPENAI_API_KEY=your-openrouter-api-key-here
+   OPENAI_API_KEY=your-openai-api-key-here
    ```
 
 4. **Run the development server**
@@ -126,14 +126,13 @@ The MCQ Generator is a modern web application that uses AI to automatically gene
 
 ## 🔧 Configuration
 
-### Supported Vision Models
+### AI Model
 
-The application uses OpenRouter and supports various free vision models:
-- `qwen/qwen-2-vl-7b-instruct:free` (default)
-- `meta-llama/llama-3.2-11b-vision-instruct:free`
-- `google/gemini-flash-1.5-8b`
-
-To change the model, edit `mcq-generator/lib/openai.ts` line 62.
+The application uses OpenAI's **GPT-4o** (GPT-4 Omni) model, which includes:
+- Advanced vision capabilities for analyzing study materials
+- High-quality text generation for educational content
+- Excellent OCR for reading textbook images
+- JSON mode for structured output
 
 ### Customizing Quiz Types
 

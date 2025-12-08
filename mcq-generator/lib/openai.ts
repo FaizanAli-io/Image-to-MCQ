@@ -42,13 +42,13 @@ export async function generateStructuredQuestions(
     console.log("🖼️  Images provided:", images.length > 0 ? `Yes (${images.length} image(s))` : "No");
 
     const client = new OpenAI({
-        apiKey,
-        baseURL: "https://openrouter.ai/api/v1",
+        apiKey, // Uses OpenAI API directly
+        baseURL: "https://api.openai.com/v1", // Official OpenAI endpoint
     });
 
     // Build message content with image(s) if provided
-    const userContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
-        { type: "text", text: `USER PROMPT: ${prompt}` }
+    const userContent: Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }> = [
+        { type: "text", text: prompt }
     ];
 
     // Add all images to the content
@@ -56,27 +56,36 @@ export async function generateStructuredQuestions(
         images.forEach((img, index) => {
             userContent.push({
                 type: "image_url",
-                image_url: { url: img }
+                image_url: { 
+                    url: img,
+                    detail: "high" // High detail for better OCR and text recognition
+                }
             });
             console.log(`✅ Image ${index + 1} added to request`);
         });
     }
 
-    console.log("🤖 [STAGE 2] Sending request to OpenRouter...");
-    console.log("📡 Model: qwen/qwen-2.5-vl-7b-instruct");
+    console.log("🤖 [STAGE 2] Sending request to OpenAI...");
+    console.log("📡 Model: gpt-4o (GPT-4 Omni with vision capabilities)");
 
     const response = await client.chat.completions.create({
-        model: "qwen/qwen-2.5-vl-7b-instruct", // FREE vision model, reliaGoogle, better at following JSON instructions
+        model: "gpt-4o", // GPT-4 Omni - OpenAI's latest multimodal model with vision
         messages: [
+            {
+                role: "system",
+                content: "You are a professional academic question generator for GCSE and A-Level education. Analyze images of study materials and generate high-quality questions following the exact specifications provided. Always respond with valid JSON only."
+            },
             {
                 role: "user",
                 content: userContent as any,
             },
         ],
-        // Remove response_format for better compatibility with free models
+        response_format: { type: "json_object" }, // Ensures valid JSON response from OpenAI
+        temperature: 0.7,
+        max_tokens: 4096, // Sufficient for generating multiple questions
     });
 
-    console.log("✅ [STAGE 3] Received response from OpenRouter");
+    console.log("✅ [STAGE 3] Received response from OpenAI");
 
     const content = response.choices[0].message.content;
     if (!content) throw new Error("No content returned from OpenAI response.");

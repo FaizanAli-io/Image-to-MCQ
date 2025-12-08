@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateStructuredQuestions } from '@/lib/openai';
 import { GenerateQuestionsRequest } from '@/lib/types';
+import { generateRetrievalAnswerSequence, validateAnswerKey } from '@/lib/answer-randomization';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +31,14 @@ export async function POST(request: NextRequest) {
     }
     console.log("✅ API key found");
 
+    // Generate answer sequence for retrieval quizzes BEFORE building prompt
+    let answerSequence: string | null = null;
+    if (config.quizType === "retrieval") {
+      answerSequence = generateRetrievalAnswerSequence();
+      console.log("🎲 Generated answer sequence:", answerSequence);
+      console.log("📊 Sequence validation: No consecutive duplicates, 7-8 of each letter");
+    }
+
     // Build comprehensive prompt based on quiz type
     let prompt = customPrompt;
     
@@ -39,37 +48,151 @@ export async function POST(request: NextRequest) {
       
       switch (config.quizType) {
         case "retrieval":
-          prompt = `You are generating a ready-to-use ${levelDisplay} Retrieval Quiz. Treat this as a final deliverable that students can use immediately.
+          prompt = `You are generating a ready-to-use ${levelDisplay} retrieval quiz. Treat this as a final deliverable that students can use immediately.
 
-CRITICAL INSTRUCTIONS:
-1. Generate EXACTLY 30 multiple-choice questions total
-2. Divide into 3 topics with 10 questions each (based on the 3 images provided)
-3. Each topic: First 5 questions are AO1 (recall), Last 5 questions are AO2 (application/data/cause-effect)
-4. Questions must be short, answerable in under 30 seconds
-5. Each question has 1 correct answer + 3 plausible distractors
-6. Distractors MUST be common misconceptions that test deep understanding, NOT obviously wrong answers
-7. The aim is to TRICK students with plausible wrong answers
+🔹 FORMAT REQUIREMENTS:
+- Title at the top: "Retrieval Quiz – [INSERT DATE]"
+- Plain text only (no markdown, tables, or images)
+- Total of 30 multiple-choice questions, divided into 3 topics, with 10 questions per topic
+- Use these headings, based on the submitted revision-guide images:
+  * Topic A: [revised last week, first picture]
+  * Topic B: [revised 2–3 weeks ago, second picture]
+  * Topic C: [revised 4+ weeks ago, third picture]
 
-Topic Structure:
-- Topic A: Based on first image (revised last week)
-- Topic B: Based on second image (revised 2-3 weeks ago)  
-- Topic C: Based on third image (revised 4+ weeks ago)
+🔹 QUESTION STRUCTURE:
+Each topic must include:
+- 5 AO1 questions (recall of facts/content) - questions 1-5
+- 5 AO2 questions (application/data/one-sentence cause-effect reasoning) - questions 6-10
 
-AO2 Question Types (questions 6-10 in each topic):
-- Application of knowledge to unfamiliar scenarios
-- Data interpretation
-- One-sentence "why" or cause-effect reasoning
+Each question must:
+- Be multiple choice with 1 correct answer + 3 plausible distractors
+- Be short and answerable in under 30 seconds
+- Have only one unambiguously correct answer
+- Use distractors that reflect real misconceptions, not obviously incorrect ideas and test their deep conceptual understanding of the topic
 
-ANSWER KEY REQUIREMENTS:
-- Before generating questions, create a random 30-letter sequence using a,b,c,d (roughly equal amounts)
-- This sequence determines the position of correct answers
-- Correct answer position must NEVER be the same as the previous question
-- Place correct answer at the position indicated by the sequence
+🔹 DISTRACTOR REQUIREMENTS:
+Each incorrect option (distractor) MUST be plausible and test deep understanding.
+
+EXAMPLES OF GOOD DISTRACTORS (plausible, test understanding):
+
+✓ Confusing Similar Terms:
+Question: "Which process produces gametes?"
+- Correct: Meiosis
+- Good distractor: Mitosis (students often confuse these)
+- Good distractor: Binary fission (similar process, wrong context)
+- Good distractor: Budding (another reproduction method)
+
+✓ Reversing Cause and Effect:
+Question: "What is produced during photosynthesis?"
+- Correct: Glucose and oxygen
+- Good distractor: Carbon dioxide and water (these are INPUTS, not outputs)
+- Good distractor: ATP only (partially correct but incomplete)
+- Good distractor: Starch only (product of glucose, not direct product)
+
+✓ Correct Fact, Wrong Context:
+Question: "Which organelle is responsible for energy production?"
+- Correct: Mitochondria
+- Good distractor: Ribosomes (correct organelle, wrong function)
+- Good distractor: Chloroplasts (produces energy but only in plants via photosynthesis)
+- Good distractor: Nucleus (controls cell but doesn't produce energy)
+
+✓ Common Student Misconceptions:
+Question: "Do plants respire?"
+- Correct: Yes, all the time
+- Good distractor: No, they only photosynthesize (common misconception!)
+- Good distractor: Only at night (partially correct understanding)
+- Good distractor: Only when not photosynthesizing (another misconception)
+
+✗ EXAMPLES OF BAD DISTRACTORS (obviously wrong, don't use):
+- Completely unrelated: "The moon orbits Earth" (when asking about cell biology)
+- Nonsense words: "Flibbertigibbet organelle" or "Quantum mitochondria"
+- Grammatically incorrect: "Cell do the thing" or "Photosynthesis are happen"
+- Absurd answers: "Mitochondria play football" or "Cells eat pizza"
+- Obviously false: "Plants are made of metal" or "DNA is liquid"
+
+CRITICAL: Every distractor must be something a student with partial understanding might genuinely believe. If a distractor is obviously wrong at first glance, it's a bad distractor.
+
+🔹 AO2 QUESTION REQUIREMENTS:
+AO2 questions (questions 6–10 in each topic) MUST test application, not just recall.
+
+EXAMPLES OF GOOD AO2 QUESTIONS:
+
+✓ Application to Unfamiliar Scenarios:
+"A student finds a plant cell under a microscope in a pond sample. Which feature would confirm it's a plant cell not an animal cell?"
+a) Cell membrane
+b) Nucleus
+c) Cell wall
+d) Cytoplasm
+
+✓ Data Interpretation:
+"The graph shows enzyme activity at different temperatures. At which temperature is the enzyme denatured?"
+a) 20°C
+b) 37°C
+c) 45°C
+d) 60°C
+
+✓ Cause-Effect / "Why" Questions:
+"Why does increasing substrate concentration eventually stop increasing the rate of reaction?"
+a) The enzyme denatures
+b) All active sites are occupied
+c) The substrate runs out
+d) The temperature decreases
+
+✗ DO NOT CREATE (These are AO1, not AO2):
+- "What is the function of chloroplasts?" (simple recall)
+- "Name the process of cell division." (definition)
+- "List three parts of a cell." (memorization)
+
+✗ DO NOT CREATE (These are AO3, too complex):
+- "Evaluate the effectiveness of..." (evaluation)
+- "Discuss the advantages and disadvantages..." (essay-style)
+- "Compare and contrast..." (requires extended response)
+
+REQUIREMENTS:
+- Application of knowledge to an unfamiliar example, OR
+- Interpretation of data/graphs/scenarios, OR
+- One-sentence cause/effect or "why" question (multiple choice format)
+- Must be answerable in under 30 seconds
+- Avoid AO3 evaluative or essay-style questions
+
+⏱️ TIME CONSTRAINT:
+Every question MUST be answerable in under 30 seconds by a ${levelDisplay} student.
+
+This means:
+✓ Question text: 1-2 sentences maximum
+✓ No lengthy data tables or complex diagrams needed
+✓ Students can identify the answer quickly with their knowledge
+✓ Each option: 5-8 words maximum (concise and clear)
+✓ No multi-step calculations or complex reasoning chains
+✓ Straightforward scenarios that test knowledge application, not puzzle-solving
+
+✗ If a question requires more than 30 seconds of careful thinking, it's TOO COMPLEX. Simplify it.
+
+❗ DO NOT:
+- Label which option is correct
+- Mention which questions are AO1/AO2 in the quiz
+- Add any explanations in the quiz
+
+📎 REQUIREMENTS FOR ANSWERS:
+CRITICAL - USE THIS PRE-GENERATED ANSWER SEQUENCE:
+The answer key sequence has been pre-generated for you: "${answerSequence}"
+
+YOU MUST:
+1. Use this EXACT sequence - do NOT generate your own
+2. For question 1, the correct answer is at position '${answerSequence?.[0]}' (a=0, b=1, c=2, d=3)
+3. For question 2, the correct answer is at position '${answerSequence?.[1]}'
+4. Continue this pattern for all 30 questions
+5. This sequence already has no consecutive duplicates and equal distribution
+6. Place the correct answer at the position indicated by each letter in the sequence
+7. Do NOT show any planning steps
+8. Do NOT list or label which answers are correct until the answer key at the very end
+
+At the very end of the document, after all 30 questions, include an answer key only.
 
 Respond with ONLY valid JSON in this exact format:
 {
-  "title": "Retrieval Quiz - [Current Date]",
-  "answerKeySequence": "abcdabcdabcdabcdabcdabcdabcdab",
+  "title": "Retrieval Quiz – [Current Date]",
+  "answerKeySequence": "${answerSequence}",
   "questions": [
     {
       "text": "Question 1 text",
@@ -83,14 +206,17 @@ Respond with ONLY valid JSON in this exact format:
   ]
 }
 
-IMPORTANT: 
-- Do NOT label which questions are AO1/AO2 in the quiz
-- Do NOT reveal which option is correct in the question text
-- Base questions on the image content provided
-- Ensure distractors reflect real student misconceptions
+CRITICAL JSON REQUIREMENTS:
+- The answerKeySequence must be generated FIRST and locked before writing questions
+- Each question's correctAnswer index (0=a, 1=b, 2=c, 3=d) must match the corresponding letter in answerKeySequence
+- Ensure no consecutive questions have the same correctAnswer index
+- Ensure roughly equal distribution of a,b,c,d in the sequence (7-8 of each)
+- Place the correct answer at the position indicated by the sequence letter
+- Base all questions on the image content provided
 - Plain text only, no markdown`;
           break;
 
+        /* COMMENTED OUT - Only Retrieval Quiz is active
         case "mini":
           const miniCounts = level === "A-LEVEL" ? "8 AO1, 10 AO2, 6 AO3" : "10 AO1, 6 AO2, 3 AO3";
           const totalQuestions = level === "A-LEVEL" ? 24 : 19;
@@ -336,6 +462,7 @@ IMPORTANT:
 - All questions must practice the same technique
 - Variety of topics to reinforce technique`;
           break;
+        */
 
         default:
           prompt = `Generate ${config.questionCount} ${config.questionType} questions for ${levelDisplay} based on the image.
