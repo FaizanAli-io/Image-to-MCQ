@@ -5,6 +5,15 @@ export interface GeneratedQuestion {
   correctAnswer?: number;
   maxMarks?: number;
   image?: string;
+  topic?: string; // Topic label (e.g., "Topic A: Cell Biology")
+  questionNumber?: number; // Question number within the quiz
+}
+
+export interface TopicQuestions {
+  topicTitle: string; // e.g., "Topic A: Cell Biology"
+  topicLabel: string; // e.g., "Topic A"
+  questions: GeneratedQuestion[];
+  answerSequence: string; // 10-letter sequence for this topic (e.g., "abcdcbadcb")
 }
 
 export interface QuizConfig {

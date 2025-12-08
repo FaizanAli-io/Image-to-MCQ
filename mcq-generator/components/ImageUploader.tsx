@@ -6,7 +6,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, ChevronUp, ChevronDown } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 
 interface ImageUploaderProps {
@@ -179,6 +179,22 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
     onImageUpload(multipleImages ? [] : '');
   };
 
+  const moveImageUp = (index: number) => {
+    if (index === 0) return; // Already at the top
+    const newPreviews = [...previews];
+    [newPreviews[index - 1], newPreviews[index]] = [newPreviews[index], newPreviews[index - 1]];
+    setPreviews(newPreviews);
+    onImageUpload(newPreviews);
+  };
+
+  const moveImageDown = (index: number) => {
+    if (index === previews.length - 1) return; // Already at the bottom
+    const newPreviews = [...previews];
+    [newPreviews[index], newPreviews[index + 1]] = [newPreviews[index + 1], newPreviews[index]];
+    setPreviews(newPreviews);
+    onImageUpload(newPreviews);
+  };
+
   return (
     <div className="w-full">
       {previews.length === 0 ? (
@@ -259,6 +275,14 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
               </button>
             </div>
           )}
+          {multipleImages && previews.length > 1 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-xs text-amber-800 font-medium flex items-center gap-2">
+                <span>💡</span>
+                <span>Use the ↑↓ arrows to reorder topics if needed</span>
+              </p>
+            </div>
+          )}
           <div className={`grid ${multipleImages ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'} gap-4`}>
             {previews.map((preview, index) => (
               <div key={index} className="group relative bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden border border-gray-200">
@@ -274,6 +298,37 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" 
                   />
                 </div>
+                
+                {/* Reorder buttons for multiple images */}
+                {multipleImages && previews.length > 1 && (
+                  <div className="absolute bottom-3 left-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    <button
+                      onClick={() => moveImageUp(index)}
+                      disabled={index === 0 || isCompressing}
+                      className={`p-1.5 rounded-full shadow-lg transition-all duration-150 ${
+                        index === 0 
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                          : 'bg-white/90 backdrop-blur-sm text-indigo-600 hover:bg-indigo-600 hover:text-white'
+                      }`}
+                      title="Move up"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => moveImageDown(index)}
+                      disabled={index === previews.length - 1 || isCompressing}
+                      className={`p-1.5 rounded-full shadow-lg transition-all duration-150 ${
+                        index === previews.length - 1
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                          : 'bg-white/90 backdrop-blur-sm text-indigo-600 hover:bg-indigo-600 hover:text-white'
+                      }`}
+                      title="Move down"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                
                 <button
                   onClick={() => removeImage(index)}
                   className="absolute top-3 right-3 p-1.5 bg-white/90 backdrop-blur-sm text-red-600 rounded-full hover:bg-red-600 hover:text-white transition-all duration-150 shadow-lg opacity-0 group-hover:opacity-100"

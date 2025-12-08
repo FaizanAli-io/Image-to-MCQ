@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateStructuredQuestions } from '@/lib/openai';
-import { GenerateQuestionsRequest } from '@/lib/types';
+import { generateStructuredQuestions, generateRetrievalQuizConcurrent } from '@/lib/openai';
+import { GenerateQuestionsRequest, GeneratedQuestion } from '@/lib/types';
 import { generateRetrievalAnswerSequence, validateAnswerKey } from '@/lib/answer-randomization';
 
 export async function POST(request: NextRequest) {
@@ -31,12 +31,62 @@ export async function POST(request: NextRequest) {
     }
     console.log("✅ API key found");
 
-    // Generate answer sequence for retrieval quizzes BEFORE building prompt
-    let answerSequence: string | null = null;
+    // Handle retrieval quiz with concurrent processing
     if (config.quizType === "retrieval") {
-      answerSequence = generateRetrievalAnswerSequence();
-      console.log("🎲 Generated answer sequence:", answerSequence);
-      console.log("📊 Sequence validation: No consecutive duplicates, 7-8 of each letter");
+      // Validate we have exactly 3 images
+      if (!Array.isArray(imageBase64) || imageBase64.length !== 3) {
+        return NextResponse.json(
+          { error: 'Retrieval quiz requires exactly 3 images' },
+          { status: 400 }
+        );
+      }
+
+      // Generate 3 answer sequences (10 questions each)
+      const answerSequences: [string, string, string] = [
+        generateRetrievalAnswerSequence().substring(0, 10),
+        generateRetrievalAnswerSequence().substring(0, 10),
+        generateRetrievalAnswerSequence().substring(0, 10)
+      ];
+
+      console.log("🎲 Generated answer sequences for 3 topics:");
+      console.log("  Topic A:", answerSequences[0]);
+      console.log("  Topic B:", answerSequences[1]);
+      console.log("  Topic C:", answerSequences[2]);
+
+      // Process all 3 images concurrently
+      const topicResults = await generateRetrievalQuizConcurrent(
+        apiKey,
+        imageBase64 as [string, string, string],
+        answerSequences,
+        config.educationLevel
+      );
+
+      // Flatten all questions into a single array with proper numbering
+      const allQuestions: GeneratedQuestion[] = [];
+      let questionNumber = 1;
+
+      topicResults.forEach((topicResult) => {
+        topicResult.questions.forEach((question) => {
+          allQuestions.push({
+            ...question,
+            questionNumber: questionNumber++
+          });
+        });
+      });
+
+      console.log("✅ Successfully generated retrieval quiz");
+      console.log(`📊 Total: ${allQuestions.length} questions across ${topicResults.length} topics`);
+      console.log("=".repeat(60) + "\n");
+
+      return NextResponse.json({ 
+        questions: allQuestions,
+        topics: topicResults.map(t => ({
+          title: t.topicTitle,
+          label: t.topicLabel,
+          questionCount: t.questions.length,
+          answerSequence: t.answerSequence
+        }))
+      });
     }
 
     // Build comprehensive prompt based on quiz type
@@ -47,7 +97,8 @@ export async function POST(request: NextRequest) {
       const levelDisplay = config.educationLevel === "GCSE" ? "GCSE" : "A-Level";
       
       switch (config.quizType) {
-        case "retrieval":
+        // Retrieval quiz is handled above with concurrent processing
+        /* case "retrieval":
           prompt = `You are generating a ready-to-use ${levelDisplay} retrieval quiz. Treat this as a final deliverable that students can use immediately.
 
 🔹 FORMAT REQUIREMENTS:
@@ -214,7 +265,7 @@ CRITICAL JSON REQUIREMENTS:
 - Place the correct answer at the position indicated by the sequence letter
 - Base all questions on the image content provided
 - Plain text only, no markdown`;
-          break;
+          break; */
 
         /* COMMENTED OUT - Only Retrieval Quiz is active
         case "mini":
