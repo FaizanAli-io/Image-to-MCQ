@@ -21,30 +21,6 @@ The MCQ Generator is a modern web application that uses AI to automatically gene
    - Spaced repetition structure (last week, 2-3 weeks ago, 4+ weeks ago)
    - Mix of AO1 (recall) and AO2 (application) questions
 
-2. **Mini Quiz** (19-24 questions)
-   - Structured around Assessment Objectives (AO1, AO2, AO3)
-   - Bloom's Taxonomy progression
-   - Includes self-reflection and mark schemes
-
-3. **Assignment** (40 marks)
-   - 4 exam-style questions (10 marks each)
-   - Proper AO distribution
-   - Difficulty progression
-   - Detailed mark schemes
-
-4. **Application Practice** (12 questions)
-   - 3-tier difficulty structure
-   - Novel contexts for knowledge transfer
-   - Worked examples included
-
-5. **Marks Per Point** (12 questions)
-   - Explanation and description questions only
-   - 2-4 marks per question
-   - Clear mark schemes
-
-6. **Specific Technique** (12 questions)
-   - Focused exam technique practice
-   - Variety of topics, same technique
 
 ### 🎨 Professional UI/UX
 - Modern, clean interface with professional color scheme
