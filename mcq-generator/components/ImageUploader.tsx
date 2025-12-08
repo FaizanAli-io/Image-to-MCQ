@@ -1,7 +1,13 @@
+// ============================================================================
+// FILE: components/ImageUploader.tsx
+// UPDATED WITH IMAGE COMPRESSION
+// ============================================================================
+
 'use client';
 
 import { useState } from 'react';
 import { Upload, X } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 interface ImageUploaderProps {
   onImageUpload: (base64: string | string[]) => void;
@@ -12,12 +18,34 @@ interface ImageUploaderProps {
 export default function ImageUploader({ onImageUpload, multipleImages = false, maxImages = 3 }: ImageUploaderProps) {
   const [previews, setPreviews] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
 
-  const handleFiles = (files: FileList) => {
+  const compressImage = async (file: File): Promise<File> => {
+    console.log('📦 Original file size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+    
+    const options = {
+      maxSizeMB: 0.8, // Target max 0.8MB per image
+      maxWidthOrHeight: 1920, // Max dimension
+      useWebWorker: true,
+      fileType: 'image/jpeg' as const, // Convert to JPEG for better compression
+    };
+    
+    try {
+      const compressedFile = await imageCompression(file, options);
+      console.log('✅ Compressed file size:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB');
+      console.log('📊 Compression ratio:', ((1 - compressedFile.size / file.size) * 100).toFixed(1), '% reduction');
+      return compressedFile;
+    } catch (error) {
+      console.error('❌ Compression error:', error);
+      throw new Error('Failed to compress image. Please try a different image.');
+    }
+  };
+
+  const handleFiles = async (files: FileList) => {
     const fileArray = Array.from(files);
     
     if (!multipleImages && fileArray.length > 0) {
-      handleSingleFile(fileArray[0]);
+      await handleSingleFile(fileArray[0]);
       return;
     }
 
@@ -33,44 +61,109 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
       return;
     }
 
-    const readers = validFiles.map(file => {
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(file);
-      });
-    });
+    // Check individual file sizes BEFORE compression
+    const oversizedFiles = validFiles.filter(file => file.size > 10 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      alert('Some images are too large (>10MB). Please choose smaller images.');
+      return;
+    }
 
-    Promise.all(readers).then(base64Array => {
+    setIsCompressing(true);
+    
+    try {
+      // Compress all files
+      const compressedFiles = await Promise.all(
+        validFiles.map(file => compressImage(file))
+      );
+
+      // Convert compressed files to base64
+      const readers = compressedFiles.map(file => {
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.onerror = (e) => reject(new Error('Failed to read file'));
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const base64Array = await Promise.all(readers);
+      
+      // Log total size
+      const totalSize = base64Array.reduce((sum, b64) => sum + b64.length, 0);
+      console.log('📊 Total base64 size:', (totalSize / 1024 / 1024).toFixed(2), 'MB');
+      
+      if (totalSize > 4 * 1024 * 1024) {
+        alert('Combined images still too large. Please try smaller or fewer images.');
+        setIsCompressing(false);
+        return;
+      }
+
       const newPreviews = [...previews, ...base64Array];
       setPreviews(newPreviews);
       onImageUpload(newPreviews);
-    });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to process images');
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
-  const handleSingleFile = (file: File) => {
+  const handleSingleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('Please upload an image file');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      setPreviews([base64]);
-      onImageUpload(base64);
-    };
-    reader.readAsDataURL(file);
+    // Check file size BEFORE compression
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image is too large (>10MB). Please choose a smaller image.');
+      return;
+    }
+
+    setIsCompressing(true);
+
+    try {
+      const compressedFile = await compressImage(file);
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string;
+        
+        // Check final base64 size
+        const sizeInMB = base64.length / 1024 / 1024;
+        console.log('📊 Final base64 size:', sizeInMB.toFixed(2), 'MB');
+        
+        if (sizeInMB > 3.5) {
+          alert('Image still too large after compression. Please try a smaller image.');
+          setIsCompressing(false);
+          return;
+        }
+        
+        setPreviews([base64]);
+        onImageUpload(base64);
+        setIsCompressing(false);
+      };
+      reader.onerror = () => {
+        alert('Failed to read image file');
+        setIsCompressing(false);
+      };
+      reader.readAsDataURL(compressedFile);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to process image');
+      setIsCompressing(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    handleFiles(e.dataTransfer.files);
+    if (!isCompressing) {
+      handleFiles(e.dataTransfer.files);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
+    if (e.target.files && !isCompressing) {
       handleFiles(e.target.files);
     }
   };
@@ -97,24 +190,28 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
             isDragging 
               ? 'border-indigo-500 bg-indigo-50 scale-[1.02]' 
               : 'border-gray-300 hover:border-indigo-400 hover:bg-gray-50'
-          }`}
+          } ${isCompressing ? 'opacity-50 cursor-wait' : ''}`}
         >
           <div className="flex flex-col items-center">
             <div className={`p-4 rounded-full mb-4 transition-colors ${
               isDragging ? 'bg-indigo-100' : 'bg-gray-100'
             }`}>
-              <Upload className={`w-8 h-8 ${isDragging ? 'text-indigo-600' : 'text-gray-400'}`} />
+              {isCompressing ? (
+                <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <Upload className={`w-8 h-8 ${isDragging ? 'text-indigo-600' : 'text-gray-400'}`} />
+              )}
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {multipleImages ? 'Upload Multiple Images' : 'Upload Image'}
+              {isCompressing ? 'Compressing images...' : multipleImages ? 'Upload Multiple Images' : 'Upload Image'}
             </h3>
             <p className="text-sm text-gray-600 mb-1">
-              Drag and drop or click to browse
+              {isCompressing ? 'Please wait...' : 'Drag and drop or click to browse'}
             </p>
             <p className="text-xs text-gray-500 mb-4">
-              Supports: JPG, PNG, WebP (max 10MB)
+              Supports: JPG, PNG, WebP (max 10MB) • Images will be auto-compressed
             </p>
-            {multipleImages && (
+            {multipleImages && !isCompressing && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 max-w-md">
                 <p className="text-xs text-blue-800 font-medium">
                   📚 Retrieval Quiz requires 3 images:
@@ -131,10 +228,13 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
               onChange={handleChange}
               className="hidden"
               id="file-upload"
+              disabled={isCompressing}
             />
             <label
               htmlFor="file-upload"
-              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-indigo-700 active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md"
+              className={`px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-indigo-700 active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md ${
+                isCompressing ? 'opacity-50 cursor-wait pointer-events-none' : ''
+              }`}
             >
               Choose {multipleImages ? 'Images' : 'Image'}
             </label>
@@ -153,6 +253,7 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
               <button
                 onClick={clearAllImages}
                 className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
+                disabled={isCompressing}
               >
                 Clear All
               </button>
@@ -177,13 +278,14 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
                   onClick={() => removeImage(index)}
                   className="absolute top-3 right-3 p-1.5 bg-white/90 backdrop-blur-sm text-red-600 rounded-full hover:bg-red-600 hover:text-white transition-all duration-150 shadow-lg opacity-0 group-hover:opacity-100"
                   title="Remove image"
+                  disabled={isCompressing}
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ))}
           </div>
-          {multipleImages && previews.length < maxImages && (
+          {multipleImages && previews.length < maxImages && !isCompressing && (
             <div className="text-center pt-2">
               <input
                 type="file"
@@ -200,6 +302,16 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
                 <Upload className="w-4 h-4" />
                 Add More Images
               </label>
+            </div>
+          )}
+          {isCompressing && (
+            <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 font-medium">
+                ⚙️ Compressing images for upload...
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                This may take a few seconds
+              </p>
             </div>
           )}
         </div>
