@@ -279,7 +279,8 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <p className="text-xs text-amber-800 font-medium flex items-center gap-2">
                 <span>💡</span>
-                <span>Use the ↑↓ arrows to reorder topics if needed</span>
+                <span className="hidden sm:inline">Use the ↑↓ arrows to reorder topics if needed</span>
+                <span className="sm:hidden">Tap the ↑↓ arrows on images to reorder topics</span>
               </p>
             </div>
           )}
@@ -301,41 +302,41 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
                 
                 {/* Reorder buttons for multiple images */}
                 {multipleImages && previews.length > 1 && (
-                  <div className="absolute bottom-3 left-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className="absolute bottom-3 left-3 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-150">
                     <button
                       onClick={() => moveImageUp(index)}
                       disabled={index === 0 || isCompressing}
-                      className={`p-1.5 rounded-full shadow-lg transition-all duration-150 ${
+                      className={`p-2 sm:p-1.5 rounded-full shadow-lg transition-all duration-150 touch-manipulation ${
                         index === 0 
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                          : 'bg-white/90 backdrop-blur-sm text-indigo-600 hover:bg-indigo-600 hover:text-white'
+                          : 'bg-white/90 backdrop-blur-sm text-indigo-600 hover:bg-indigo-600 hover:text-white active:scale-95'
                       }`}
                       title="Move up"
                     >
-                      <ChevronUp className="w-4 h-4" />
+                      <ChevronUp className="w-5 h-5 sm:w-4 sm:h-4" />
                     </button>
                     <button
                       onClick={() => moveImageDown(index)}
                       disabled={index === previews.length - 1 || isCompressing}
-                      className={`p-1.5 rounded-full shadow-lg transition-all duration-150 ${
+                      className={`p-2 sm:p-1.5 rounded-full shadow-lg transition-all duration-150 touch-manipulation ${
                         index === previews.length - 1
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                          : 'bg-white/90 backdrop-blur-sm text-indigo-600 hover:bg-indigo-600 hover:text-white'
+                          : 'bg-white/90 backdrop-blur-sm text-indigo-600 hover:bg-indigo-600 hover:text-white active:scale-95'
                       }`}
                       title="Move down"
                     >
-                      <ChevronDown className="w-4 h-4" />
+                      <ChevronDown className="w-5 h-5 sm:w-4 sm:h-4" />
                     </button>
                   </div>
                 )}
                 
                 <button
                   onClick={() => removeImage(index)}
-                  className="absolute top-3 right-3 p-1.5 bg-white/90 backdrop-blur-sm text-red-600 rounded-full hover:bg-red-600 hover:text-white transition-all duration-150 shadow-lg opacity-0 group-hover:opacity-100"
+                  className="absolute top-3 right-3 p-2 sm:p-1.5 bg-white/90 backdrop-blur-sm text-red-600 rounded-full hover:bg-red-600 hover:text-white transition-all duration-150 shadow-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 touch-manipulation active:scale-95"
                   title="Remove image"
                   disabled={isCompressing}
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5 sm:w-4 sm:h-4" />
                 </button>
               </div>
             ))}
