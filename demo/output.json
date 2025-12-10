@@ -1,0 +1,322 @@
+{
+  "title": "Retrieval Quiz – [INSERT DATE]",
+  "topics": [
+    {
+      "name": "Topic A: Developing the Model of the Atom",
+      "questions": [
+        {
+          "question": "What did the plum pudding model suggest about the atom?",
+          "options": [
+            "Electrons in a positive sphere",
+            "Protons at the center",
+            "Neutrons surrounding electrons",
+            "A dense nucleus with orbiting electrons"
+          ]
+        },
+        {
+          "question": "Who proposed the Nuclear Model of the atom?",
+          "options": [
+            "Rutherford",
+            "Thomson",
+            "Chadwick",
+            "Bohr"
+          ]
+        },
+        {
+          "question": "Which experiment led to the Nuclear Model?",
+          "options": [
+            "Gold foil",
+            "Cathode ray",
+            "Double-slit",
+            "Photoelectric effect"
+          ]
+        },
+        {
+          "question": "What charge does a proton carry?",
+          "options": [
+            "Positive",
+            "Negative",
+            "Neutral",
+            "Variable"
+          ]
+        },
+        {
+          "question": "What particles are found in the nucleus?",
+          "options": [
+            "Protons and neutrons",
+            "Electrons only",
+            "Protons and electrons",
+            "Neutrons only"
+          ]
+        },
+        {
+          "question": "Why were some alpha particles deflected in Rutherford's experiment?",
+          "options": [
+            "They hit a positive nucleus",
+            "They repelled electrons",
+            "They passed through empty space",
+            "They collided with other alpha particles"
+          ]
+        },
+        {
+          "question": "What was unexpected in the gold foil experiment?",
+          "options": [
+            "Most particles passed through",
+            "All particles were deflected",
+            "Particles emitted light",
+            "Particles stopped"
+          ]
+        },
+        {
+          "question": "How did the nuclear model change earlier ideas?",
+          "options": [
+            "Introduced a dense nucleus",
+            "Eliminated electrons",
+            "Added electron clouds",
+            "Removed protons"
+          ]
+        },
+        {
+          "question": "What impact did Chadwick have on the model?",
+          "options": [
+            "Discovery of neutrons",
+            "Discovery of electrons",
+            "Proton theory",
+            "Quantum model"
+          ]
+        },
+        {
+          "question": "How do electrons behave in the nuclear model?",
+          "options": [
+            "Orbit the nucleus",
+            "Fixed in the nucleus",
+            "Freely float",
+            "Identical to neutrons"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Topic B: Ionic Bonding",
+      "questions": [
+        {
+          "question": "What is ionic bonding?",
+          "options": [
+            "Transfer of electrons",
+            "Sharing of electrons",
+            "Pooling of electrons",
+            "Formation of neutrons"
+          ]
+        },
+        {
+          "question": "What charge does an ion have after losing electrons?",
+          "options": [
+            "Positive",
+            "Negative",
+            "Neutral",
+            "Variable"
+          ]
+        },
+        {
+          "question": "What elements typically form ionic bonds?",
+          "options": [
+            "Metals and non-metals",
+            "Non-metals only",
+            "Metals only",
+            "Noble gases"
+          ]
+        },
+        {
+          "question": "What charge results from gaining electrons?",
+          "options": [
+            "Negative",
+            "Positive",
+            "Neutral",
+            "None"
+          ]
+        },
+        {
+          "question": "What is the role of a dot and cross diagram?",
+          "options": [
+            "Show electron transfer",
+            "Show electron sharing",
+            "Display atomic mass",
+            "Indicate covalent bonds"
+          ]
+        },
+        {
+          "question": "Why do ionic compounds conduct electricity when molten?",
+          "options": [
+            "Ions are free to move",
+            "Electrons flee",
+            "Protons shift",
+            "Neutrons move"
+          ]
+        },
+        {
+          "question": "How do ionic compounds appear in solid form?",
+          "options": [
+            "As crystalline structures",
+            "As gaseous states",
+            "As liquids",
+            "As random assemblies"
+          ]
+        },
+        {
+          "question": "Why don't ionic compounds conduct electricity as solids?",
+          "options": [
+            "Ions are fixed in place",
+            "Electrons are immobile",
+            "Protons are stationary",
+            "Neutrons block flow"
+          ]
+        },
+        {
+          "question": "What does the term 'giant ionic lattice' imply?",
+          "options": [
+            "Regular repeating structure",
+            "No defined shape",
+            "Single atoms only",
+            "Irregular patterns"
+          ]
+        },
+        {
+          "question": "How is a cation formed?",
+          "options": [
+            "Loss of electrons",
+            "Gain of electrons",
+            "Electrons remain constant",
+            "Splitting of neutrons"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Topic C: Cell Organisation",
+      "questions": [
+        {
+          "question": "What is an organ system?",
+          "options": [
+            "Group of organs working together",
+            "Single organ by itself",
+            "System of cells",
+            "Network of tissues only"
+          ]
+        },
+        {
+          "question": "What is the primary function of muscle cells?",
+          "options": [
+            "Contraction",
+            "Conduction",
+            "Protection",
+            "Insulation"
+          ]
+        },
+        {
+          "question": "What tissue type covers body surfaces?",
+          "options": [
+            "Epithelial",
+            "Connective",
+            "Muscle",
+            "Nervous"
+          ]
+        },
+        {
+          "question": "What role do neurons play?",
+          "options": [
+            "Transmit signals",
+            "Store nutrients",
+            "Form blood",
+            "Protect surfaces"
+          ]
+        },
+        {
+          "question": "Which organ is part of the digestive system?",
+          "options": [
+            "Stomach",
+            "Lung",
+            "Heart",
+            "Liver"
+          ]
+        },
+        {
+          "question": "How does the stomach aid digestion?",
+          "options": [
+            "Produces acid and enzymes",
+            "Stores nutrients",
+            "Absorbs water",
+            "Filters waste"
+          ]
+        },
+        {
+          "question": "Why are lungs part of the respiratory system?",
+          "options": [
+            "Exchange gases",
+            "Pump blood",
+            "Break down food",
+            "Produce hormones"
+          ]
+        },
+        {
+          "question": "Which tissue type facilitates movement?",
+          "options": [
+            "Muscle",
+            "Epithelial",
+            "Connective",
+            "Nervous"
+          ]
+        },
+        {
+          "question": "How do blood vessels assist the circulatory system?",
+          "options": [
+            "Transport blood",
+            "Produce blood cells",
+            "Break down food",
+            "Exchange gases"
+          ]
+        },
+        {
+          "question": "What is a characteristic of plant cells?",
+          "options": [
+            "Cell wall presence",
+            "Lack of nucleus",
+            "No chloroplasts",
+            "Smaller than animal cells"
+          ]
+        }
+      ]
+    }
+  ],
+  "answer_key": [
+    "a",
+    "b",
+    "c",
+    "d",
+    "a",
+    "b",
+    "c",
+    "d",
+    "a",
+    "b",
+    "c",
+    "d",
+    "a",
+    "b",
+    "c",
+    "d",
+    "a",
+    "b",
+    "c",
+    "d",
+    "a",
+    "b",
+    "c",
+    "d",
+    "a",
+    "b",
+    "c",
+    "d",
+    "a",
+    "b"
+  ]
+}
