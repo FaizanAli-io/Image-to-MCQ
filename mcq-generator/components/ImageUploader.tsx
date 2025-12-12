@@ -20,26 +20,27 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
   const [isDragging, setIsDragging] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
 
-  const compressImage = async (file: File): Promise<File> => {
-    console.log('📦 Original file size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
-    
-    const options = {
-      maxSizeMB: 0.8, // Target max 0.8MB per image
-      maxWidthOrHeight: 1920, // Max dimension
-      useWebWorker: true,
-      fileType: 'image/jpeg' as const, // Convert to JPEG for better compression
-    };
-    
-    try {
-      const compressedFile = await imageCompression(file, options);
-      console.log('✅ Compressed file size:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB');
-      console.log('📊 Compression ratio:', ((1 - compressedFile.size / file.size) * 100).toFixed(1), '% reduction');
-      return compressedFile;
-    } catch (error) {
-      console.error('❌ Compression error:', error);
-      throw new Error('Failed to compress image. Please try a different image.');
-    }
-  };
+  // COMPRESSION DISABLED - Using original files
+  // const compressImage = async (file: File): Promise<File> => {
+  //   console.log('📦 Original file size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+  //   
+  //   const options = {
+  //     maxSizeMB: 0.8, // Target max 0.8MB per image
+  //     maxWidthOrHeight: 1920, // Max dimension
+  //     useWebWorker: true,
+  //     fileType: 'image/jpeg' as const, // Convert to JPEG for better compression
+  //   };
+  //   
+  //   try {
+  //     const compressedFile = await imageCompression(file, options);
+  //     console.log('✅ Compressed file size:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB');
+  //     console.log('📊 Compression ratio:', ((1 - compressedFile.size / file.size) * 100).toFixed(1), '% reduction');
+  //     return compressedFile;
+  //   } catch (error) {
+  //     console.error('❌ Compression error:', error);
+  //     throw new Error('Failed to compress image. Please try a different image.');
+  //   }
+  // };
 
   const handleFiles = async (files: FileList) => {
     const fileArray = Array.from(files);
@@ -71,13 +72,13 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
     setIsCompressing(true);
     
     try {
-      // Compress all files
-      const compressedFiles = await Promise.all(
-        validFiles.map(file => compressImage(file))
-      );
+      // NO COMPRESSION - Use original files directly
+      // const compressedFiles = await Promise.all(
+      //   validFiles.map(file => compressImage(file))
+      // );
 
-      // Convert compressed files to base64
-      const readers = compressedFiles.map(file => {
+      // Convert original files to base64
+      const readers = validFiles.map(file => {
         return new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target?.result as string);
@@ -90,13 +91,14 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
       
       // Log total size
       const totalSize = base64Array.reduce((sum, b64) => sum + b64.length, 0);
-      console.log('📊 Total base64 size:', (totalSize / 1024 / 1024).toFixed(2), 'MB');
+      console.log('📊 Total base64 size (original):', (totalSize / 1024 / 1024).toFixed(2), 'MB');
       
-      if (totalSize > 4 * 1024 * 1024) {
-        alert('Combined images still too large. Please try smaller or fewer images.');
-        setIsCompressing(false);
-        return;
-      }
+      // Removed size check - allow original file sizes
+      // if (totalSize > 4 * 1024 * 1024) {
+      //   alert('Combined images still too large. Please try smaller or fewer images.');
+      //   setIsCompressing(false);
+      //   return;
+      // }
 
       const newPreviews = [...previews, ...base64Array];
       setPreviews(newPreviews);
@@ -123,21 +125,23 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
     setIsCompressing(true);
 
     try {
-      const compressedFile = await compressImage(file);
+      // NO COMPRESSION - Use original file directly
+      // const compressedFile = await compressImage(file);
       
       const reader = new FileReader();
       reader.onload = (e) => {
         const base64 = e.target?.result as string;
         
-        // Check final base64 size
+        // Log original file size
         const sizeInMB = base64.length / 1024 / 1024;
-        console.log('📊 Final base64 size:', sizeInMB.toFixed(2), 'MB');
+        console.log('📊 Original base64 size:', sizeInMB.toFixed(2), 'MB');
         
-        if (sizeInMB > 3.5) {
-          alert('Image still too large after compression. Please try a smaller image.');
-          setIsCompressing(false);
-          return;
-        }
+        // Removed size check - allow original file sizes
+        // if (sizeInMB > 3.5) {
+        //   alert('Image still too large after compression. Please try a smaller image.');
+        //   setIsCompressing(false);
+        //   return;
+        // }
         
         setPreviews([base64]);
         onImageUpload(base64);
@@ -147,7 +151,7 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
         alert('Failed to read image file');
         setIsCompressing(false);
       };
-      reader.readAsDataURL(compressedFile);
+      reader.readAsDataURL(file);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to process image');
       setIsCompressing(false);
@@ -225,7 +229,7 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
               {isCompressing ? 'Please wait...' : 'Drag and drop or click to browse'}
             </p>
             <p className="text-xs text-gray-500 mb-4">
-              Supports: JPG, PNG, WebP (max 10MB) • Images will be auto-compressed
+              Supports: JPG, PNG, WebP (max 10MB) • Original quality preserved
             </p>
             {multipleImages && !isCompressing && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 max-w-md">
@@ -363,10 +367,10 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
           {isCompressing && (
             <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800 font-medium">
-                ⚙️ Compressing images for upload...
+                📁 Processing images for upload...
               </p>
               <p className="text-xs text-blue-600 mt-1">
-                This may take a few seconds
+                Converting to base64 format
               </p>
             </div>
           )}

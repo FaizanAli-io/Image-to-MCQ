@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateStructuredQuestions, generateRetrievalQuizConcurrent } from '@/lib/openai';
+import { generateStructuredQuestions, generateAndShuffleRetrievalQuiz } from '@/lib/openai';
 import { GenerateQuestionsRequest, GeneratedQuestion } from '@/lib/types';
-import { generateRetrievalAnswerSequence, validateAnswerKey } from '@/lib/answer-randomization';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,14 +11,6 @@ export async function POST(request: NextRequest) {
     const body: GenerateQuestionsRequest = await request.json();
     const { imageBase64, config, customPrompt } = body;
 
-    console.log("📦 Request config:", {
-      questionCount: config.questionCount,
-      questionType: config.questionType,
-      educationLevel: config.educationLevel,
-      quizType: config.quizType,
-      hasCustomPrompt: !!customPrompt,
-      hasImage: !!imageBase64
-    });
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -31,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
     console.log("✅ API key found");
 
-    // Handle retrieval quiz with concurrent processing
+    // Handle retrieval quiz using demo workflow
     if (config.quizType === "retrieval") {
       // Validate we have exactly 3 images
       if (!Array.isArray(imageBase64) || imageBase64.length !== 3) {
@@ -41,51 +32,25 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Generate 3 answer sequences (10 questions each)
-      const answerSequences: [string, string, string] = [
-        generateRetrievalAnswerSequence().substring(0, 10),
-        generateRetrievalAnswerSequence().substring(0, 10),
-        generateRetrievalAnswerSequence().substring(0, 10)
-      ];
+      console.log("🚀 Using demo workflow for retrieval quiz generation...");
 
-      console.log("🎲 Generated answer sequences for 3 topics:");
-      console.log("  Topic A:", answerSequences[0]);
-      console.log("  Topic B:", answerSequences[1]);
-      console.log("  Topic C:", answerSequences[2]);
-
-      // Process all 3 images concurrently
-      const topicResults = await generateRetrievalQuizConcurrent(
+      // Generate and shuffle the complete quiz using demo workflow
+      const result = await generateAndShuffleRetrievalQuiz(
         apiKey,
         imageBase64 as [string, string, string],
-        answerSequences,
         config.educationLevel
       );
 
-      // Flatten all questions into a single array with proper numbering
-      const allQuestions: GeneratedQuestion[] = [];
-      let questionNumber = 1;
-
-      topicResults.forEach((topicResult) => {
-        topicResult.questions.forEach((question) => {
-          allQuestions.push({
-            ...question,
-            questionNumber: questionNumber++
-          });
-        });
-      });
-
-      console.log("✅ Successfully generated retrieval quiz");
-      console.log(`📊 Total: ${allQuestions.length} questions across ${topicResults.length} topics`);
+      console.log("✅ Successfully generated and shuffled retrieval quiz");
+      console.log(`📊 Total: ${result.questions.length} questions`);
+      console.log(`🎲 Original answer key: ${result.originalAnswerKey.join('')}`);
+      console.log(`🎲 Shuffled answer key: ${result.shuffledAnswerKey.join('')}`);
       console.log("=".repeat(60) + "\n");
 
       return NextResponse.json({ 
-        questions: allQuestions,
-        topics: topicResults.map(t => ({
-          title: t.topicTitle,
-          label: t.topicLabel,
-          questionCount: t.questions.length,
-          answerSequence: t.answerSequence
-        }))
+        questions: result.questions,
+        originalAnswerKey: result.originalAnswerKey,
+        shuffledAnswerKey: result.shuffledAnswerKey
       });
     }
 

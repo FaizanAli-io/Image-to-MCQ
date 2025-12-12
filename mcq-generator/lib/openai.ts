@@ -1,225 +1,13 @@
 import OpenAI from "openai";
-import { GeneratedQuestion, TopicQuestions } from "./types";
+import { GeneratedQuestion } from "./types";
 
-// Function to shuffle array (Fisher-Yates algorithm)
-function shuffleArray<T>(array: T[]): T[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-}
-
-/**
- * Sanitize text to remove problematic characters and fix formatting
- */
-function sanitizeText(text: string): string {
-    // Remove or replace problematic Unicode characters
-    let cleaned = text
-        // Remove zero-width spaces and other invisible characters
-        .replace(/[\u200B-\u200D\uFEFF]/g, '')
-        // Replace smart quotes with regular quotes
-        .replace(/[""]/g, '"')
-        .replace(/['']/g, "'")
-        // Remove control characters
-        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-        // Replace multiple spaces with single space
-        .replace(/\s+/g, ' ')
-        // Remove strange spacing around operators
-        .replace(/\s*([²³⁺⁻⁰¹⁴⁵⁶⁷⁸⁹])\s*/g, '$1')
-        // Trim
-        .trim();
-
-    // Fix common chemical notation issues
-    cleaned = cleaned
-        // Fix superscript numbers that got corrupted
-        .replace(/O\s*z/gi, 'O2-')
-        .replace(/O\s*²\s*z/gi, 'O2-')
-        .replace(/O\s*²\s*{/gi, 'O2-')
-        .replace(/O\s*{/gi, 'O-')
-        // Fix Cl ion notation
-        .replace(/Cl\s*z/gi, 'Cl-')
-        .replace(/Cl\s*{/gi, 'Cl-')
-        // Fix Mg notation
-        .replace(/Mg\s*²\s*\+/gi, 'Mg2+')
-        .replace(/Mg\s*z/gi, 'Mg2+')
-        // Fix Na notation
-        .replace(/Na\s*\+/gi, 'Na+')
-        // Fix generic corrupted superscripts
-        .replace(/([A-Z][a-z]?)\s*[²³⁴⁵⁶⁷⁸⁹]\s*[z{]/gi, (match, element) => {
-            // Try to preserve the number if visible
-            const numMatch = match.match(/[²³⁴⁵⁶⁷⁸⁹]/);
-            if (numMatch) {
-                const superscriptMap: Record<string, string> = {
-                    '²': '2', '³': '3', '⁴': '4', '⁵': '5',
-                    '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9'
-                };
-                const num = superscriptMap[numMatch[0]] || '2';
-                return `${element}${num}-`;
-            }
-            return `${element}-`;
-        })
-        // Fix MgO2 or similar
-        .replace(/MgO\s*‚/gi, 'MgO2')
-        .replace(/([A-Z][a-z]?[A-Z])\s*‚/g, '$12')
-        // Fix generic weird spacing before punctuation
-        .replace(/\s+([.,;:?!)])/g, '$1')
-        .replace(/([(\[])\s+/g, '$1');
-
-    return cleaned;
-}
-
-/**
- * Sanitize an entire question object
- */
-function sanitizeQuestion(question: GeneratedQuestion): GeneratedQuestion {
-    return {
-        ...question,
-        text: sanitizeText(question.text),
-        options: question.options?.map(opt => sanitizeText(opt)),
-        topic: question.topic ? sanitizeText(question.topic) : question.topic
-    };
-}
-
-/**
- * VALIDATION: Check if AO2 questions meet quality standards
- */
-function validateAO2Quality(questions: GeneratedQuestion[]): { valid: boolean; issues: string[] } {
-    const issues: string[] = [];
-    const ao2Questions = questions.slice(5, 10); // Questions 6-10
-
-    ao2Questions.forEach((q, index) => {
-        const qNum = index + 6;
-        const text = q.text.toLowerCase();
-
-        // Check for weak AO2 indicators
-        const weakIndicators = [
-            'what is',
-            'define',
-            'which term',
-            'name the',
-            'list',
-            'state the function of',
-            'what does',
-            'where is'
-        ];
-
-        const hasWeakIndicator = weakIndicators.some(indicator => text.startsWith(indicator));
-
-        if (hasWeakIndicator) {
-            issues.push(`Q${qNum} appears to be AO1 (recall) not AO2 (application)`);
-        }
-
-        // Check for strong AO2 indicators
-        const strongIndicators = [
-            'why',
-            'how',
-            'explain',
-            'what happens',
-            'calculate',
-            'reading',
-            'measurement',
-            'experiment',
-            'student',
-            'result',
-            'uncertainty',
-            'range',
-            'mean',
-            'data',
-            'temperature',
-            'rate',
-            'increase',
-            'decrease',
-            'reaction',
-            'process',
-            'observ', // catches "observes", "observation"
-            'during',
-            'when',
-            'form', // catches "formed", "formation"
-        ];
-
-        const hasStrongIndicator = strongIndicators.some(indicator => text.includes(indicator));
-
-        if (!hasStrongIndicator && !text.includes('?')) {
-            issues.push(`Q${qNum} lacks application context (no scenario/data/reasoning)`);
-        }
-
-        // Check question length (AO2 should be longer with context)
-        if (q.text.length < 40) {
-            issues.push(`Q${qNum} too short for AO2 (needs context/scenario)`);
-        }
-    });
-
-    return {
-        valid: issues.length === 0,
-        issues
-    };
-}
-
-/**
- * Check for formatting/encoding issues in questions
- */
-function validateFormatting(questions: GeneratedQuestion[]): { valid: boolean; issues: string[] } {
-    const issues: string[] = [];
-
-    questions.forEach((q, index) => {
-        const qNum = index + 1;
-
-        // Check for problematic characters in question text
-        const problematicChars = /[‚„†‡ˆ‰Š‹ŒŽ''""•–—˜™š›œžŸ]/;
-        if (problematicChars.test(q.text)) {
-            issues.push(`Q${qNum} contains formatting issues in text`);
-        }
-
-        // Check options for problematic characters
-        if (q.options) {
-            q.options.forEach((opt, optIndex) => {
-                if (problematicChars.test(opt)) {
-                    issues.push(`Q${qNum} option ${String.fromCharCode(97 + optIndex)} has formatting issues`);
-                }
-            });
-        }
-
-        // Check for excessive spacing
-        if (/\s{2,}/.test(q.text) || q.options?.some(opt => /\s{2,}/.test(opt))) {
-            issues.push(`Q${qNum} has excessive spacing`);
-        }
-    });
-
-    return {
-        valid: issues.length === 0,
-        issues
-    };
-}
-
-// Randomize MCQ answer positions
-function randomizeAnswers(questions: GeneratedQuestion[]): GeneratedQuestion[] {
-    return questions.map(q => {
-        if (q.type === "MULTIPLE_CHOICE" && q.options && q.correctAnswer !== undefined) {
-            const correctOption = q.options[q.correctAnswer];
-            const shuffled = shuffleArray(q.options);
-            const newCorrectIndex = shuffled.indexOf(correctOption);
-
-            return {
-                ...q,
-                options: shuffled,
-                correctAnswer: newCorrectIndex
-            };
-        }
-        return q;
-    });
-}
-
+// Legacy function - kept for non-retrieval quiz types
 export async function generateStructuredQuestions(
     apiKey: string,
     prompt: string,
     imageBase64?: string | string[],
 ): Promise<GeneratedQuestion[]> {
-    console.log("🚀 [STAGE 1] Starting question generation...");
-
     const images = Array.isArray(imageBase64) ? imageBase64 : (imageBase64 ? [imageBase64] : []);
-    console.log("🖼️  Images provided:", images.length > 0 ? `Yes (${images.length} image(s))` : "No");
 
     const client = new OpenAI({
         apiKey,
@@ -231,7 +19,7 @@ export async function generateStructuredQuestions(
     ];
 
     if (images.length > 0) {
-        images.forEach((img, index) => {
+        images.forEach((img) => {
             userContent.push({
                 type: "image_url",
                 image_url: {
@@ -239,335 +27,222 @@ export async function generateStructuredQuestions(
                     detail: "high"
                 }
             });
-            console.log(`✅ Image ${index + 1} added to request`);
         });
     }
-
-    console.log("🤖 [STAGE 2] Sending request to OpenAI...");
 
     const response = await client.chat.completions.create({
         model: "gpt-4o",
         messages: [
-            {
-                role: "system",
-                content: "You are a professional academic question generator for GCSE and A-Level education. Analyze images of study materials and generate high-quality questions following the exact specifications provided. Always respond with valid JSON only."
-            },
             {
                 role: "user",
                 content: userContent as any,
             },
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7,
-        max_tokens: 4096,
     });
-
-    console.log("✅ [STAGE 3] Received response from OpenAI");
 
     const content = response.choices[0].message.content;
     if (!content) throw new Error("No content returned from OpenAI response.");
 
-    let jsonContent = content.trim();
-    jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    const jsonContent = content.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    const structured = JSON.parse(jsonContent) as { questions: GeneratedQuestion[] };
 
-    let structured: { questions: GeneratedQuestion[] } | null = null;
-
-    if (jsonContent.includes('"questions"')) {
-        const jsonMatch = jsonContent.match(/\{[\s\S]*"questions"[\s\S]*\}/);
-        if (jsonMatch) {
-            jsonContent = jsonMatch[0];
-            console.log("🔍 Found questions array structure");
-
-            try {
-                structured = JSON.parse(jsonContent) as { questions: GeneratedQuestion[] };
-            } catch (parseError) {
-                console.error("❌ JSON parse error:", parseError);
-                let fixedJson = jsonContent
-                    .replace(/,(\s*[}\]])/g, '$1')
-                    .replace(/\n/g, ' ')
-                    .replace(/\r/g, '')
-                    .replace(/\t/g, ' ')
-                    .replace(/\\/g, '\\\\')
-                    .replace(/[\u0000-\u001F]+/g, '');
-
-                structured = JSON.parse(fixedJson) as { questions: GeneratedQuestion[] };
-            }
-        }
-    }
-
-    if (!structured) {
-        console.log("🔧 Model returned individual questions, extracting...");
-        const questionMatches = jsonContent.match(/\{[^{}]*"type"[^{}]*(?:\[[^\]]*\])?[^{}]*\}/g);
-
-        if (questionMatches && questionMatches.length > 0) {
-            const questions = questionMatches.map((q, index) => {
-                try {
-                    const parsed = JSON.parse(q);
-                    return {
-                        text: parsed.question || parsed.text || "",
-                        type: parsed.type,
-                        options: parsed.options || [],
-                        correctAnswer: typeof parsed.correctAnswer === 'string' ? 0 : (parsed.correctAnswer || 0),
-                        maxMarks: parseInt(parsed.maxMarks) || 1
-                    };
-                } catch (e) {
-                    console.error(`Failed to parse question ${index + 1}:`, q, e);
-                    return null;
-                }
-            }).filter(q => q !== null);
-
-            structured = { questions: questions as GeneratedQuestion[] };
-        } else {
-            throw new Error("Could not find valid question objects in response");
-        }
-    }
-
-    console.log(`✅ Parsed ${structured.questions.length} questions`);
-
-    // Randomize MCQ answer positions
-    console.log("🎲 [STAGE 6] Randomizing answer positions...");
-    const randomized = randomizeAnswers(structured.questions);
-
-    console.log("🎉 [STAGE 7] Question generation complete!");
-
-    return randomized;
+    return structured.questions;
 }
+
+// ============================================================================
+// CONCURRENT API CALLS WORKFLOW - 3 separate calls, each returning 10 MCQs
+// ============================================================================
 
 /**
- * Process a single image to generate topic-based questions with STRONG AO2 validation
+ * Generate 10 questions for a single topic using concurrent API calls
  */
-export async function generateTopicQuestions(
-    apiKey: string,
-    imageBase64: string,
-    topicLabel: string,
-    answerSequence: string,
+async function generateTopicQuestions(
+    client: OpenAI,
+    image: string,
+    topicName: string,
+    topicDescription: string,
     educationLevel: "GCSE" | "A-LEVEL"
-): Promise<TopicQuestions> {
-    console.log(`🚀 [${topicLabel}] Starting question generation...`);
-
-    const client = new OpenAI({
-        apiKey,
-        baseURL: "https://api.openai.com/v1",
-    });
-
+): Promise<{
+    name: string;
+    questions: Array<{
+        question: string;
+        options: string[];
+    }>;
+    answer_key: string[];
+}> {
     const levelDisplay = educationLevel === "GCSE" ? "GCSE" : "A-Level";
 
-    const prompt = `You are generating a ready-to-use ${levelDisplay} retrieval quiz. Treat this as a final deliverable that students can use immediately.
-
-🔹 Format Requirements
-Plain text only (no markdown, tables, or images). 
-Generate EXACTLY 10 multiple-choice questions for ONE topic based on the submitted revision-guide image.
-Analyze the uploaded image and infer the topic title (e.g., "Uncertainties and Evaluations", "Reactions of Acids").
-Do NOT add numbering, labels, or prefixes such as "Topic A".
-
-🔹 Question Structure
-Each topic must include: 
-5 AO1 questions (recall of facts/content). 
-5 AO2 questions (application/data/one-sentence cause-effect reasoning). 
-Each question must: 
-Be multiple choice with 1 correct answer + 3 plausible distractors. 
-Be short and answerable in under 30 seconds. 
-Have only one unambiguously correct answer. 
-Use distractors that reflect real misconceptions, not obviously incorrect ideas and test their deep conceptual understanding of the topic
-
-🔹 AO2 Question Requirements
-AO2 questions (questions 6–10 in each topic) must include:
-Application of knowledge to an unfamiliar example, OR 
-Interpretation of data, OR 
-A one-sentence cause/effect or "why" question (multiple choice format). 
-Avoid AO3 evaluative or essay-style questions.
-
-❗ Do NOT:
-Label which option is correct. 
-Mention which questions are AO1/AO2 in the quiz. 
-Add any explanations in the quiz.
-
-📎 Requirements For Answers
-Use THIS answer sequence STRICTLY: "${answerSequence}"
-- Q1 correct answer = index of '${answerSequence[0]}' (a=0, b=1, c=2, d=3)
-- Q2 correct answer = index of '${answerSequence[1]}' (a=0, b=1, c=2, d=3)
-- Continue the same for all 10 questions.
-The position of the correct answer should be random
-The correct answer for a particular question should never be in the same position as the previous question
-Do not show any planning steps.
-You must plan and lock the distribution of answer positions BEFORE writing the questions.
-Do not change the distribution during writing.
-Do not list or label which answers are correct until the answer key.
-If the constraints cannot be met, you must correct yourself before outputting the quiz.
-
-=====================
-OUTPUT FORMAT (STRICT)
-=====================
-
-Return ONLY valid JSON:
-
-{
-  "topicTitle": "Example Title",
-  "questions": [
-    {
-      "text": "Question text here",
-      "options": ["option a", "option b", "option c", "option d"],
-      "correctAnswer": 0
-    }
-  ]
-}
-
-REMEMBER: Use PLAIN TEXT for all chemical formulas! "O2-" not "O²⁻", "MgO2" not "MgO₂"!`;
+    const prompt = `You are generating a ready-to-use ${levelDisplay} retrieval quiz for a single topic. Treat this as a final deliverable that students can use immediately.\n\n🔹 Format Requirements\n● Generate EXACTLY 10 multiple-choice questions for ${topicName}: Use a topic name based on image\n● Plain text only (no markdown, tables, or images)\n● Base all questions on the content in the submitted revision-guide image\n\n🔹 Question Structure\n● Each topic must include:\n ○ 5 AO1 questions (recall of facts/content)\n ○ 5 AO2 questions (application/data/one-sentence cause-effect reasoning)\n● Each question must:\n ○ Be multiple choice with 1 correct answer + 3 plausible distractors\n ○ Be short and answerable in under 30 seconds\n ○ Have only one unambiguously correct answer\n ○ Use distractors that reflect real misconceptions, not obviously incorrect ideas and test their deep conceptual understanding of the topic\n\n🔹 AO2 Question Requirements\nAO2 questions (questions 6–10 in each topic) must include:\n● Application of knowledge to an unfamiliar example, OR\n● Interpretation of data, OR\n● A one-sentence cause/effect or "why" question (multiple choice format)\n● Difficulty should be hard\n● No AO1 questions shall be disguised in as AO2 strictly\n● All questions shall not assess similar concepts different and difficult concepts from the image shall be assessed \n● Avoid AO3 evaluative or essay-style questions\n\n❗ Do NOT:\n● Label which option is correct\n● Mention which questions are AO1/AO2 in the quiz\n● Add any explanations in the quiz\n\n📎 Requirements For Answers\n● At the very end of the document, after all 10 questions, include an answer key only\n● The position of the correct answer should be random\n● The correct answer for a particular question should never be in the same position as the previous question\n● Before generating any questions, create a random 10 letter sequence using the letters a,b,c,d. There must be roughly even amount of each letter\n● This sequence will be the answer key and determine the position of the correct answer\n● Do not show any planning steps\n● Do not list or label which answers are correct until the answer key\n\nPlease generate the quiz in a JSON structure with the following format:\n{\n "name": "${topicName}",\n "questions": [\n {"question": "", "options": ["", "", "", ""]}\n ],\n "answer_key": ["", "", "", ... 10 letters total]\n}`;
 
     const userContent = [
         { type: "text" as const, text: prompt },
         {
             type: "image_url" as const,
             image_url: {
-                url: imageBase64,
+                url: image,
                 detail: "high" as const
             }
         }
     ];
 
-    console.log(`🤖 [${topicLabel}] Sending request to OpenAI...`);
+    const response = await client.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+            {
+                role: "user",
+                content: userContent,
+            },
+        ],
+        response_format: { type: "json_object" },
+    });
 
-    // Retry mechanism for AO2 quality AND formatting
-    let attempts = 0;
-    const maxAttempts = 3; // Increased to 3 for formatting retries
-    let result: TopicQuestions | null = null;
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("No content returned from OpenAI response.");
 
-    while (attempts < maxAttempts && !result) {
-        attempts++;
-        console.log(`📝 [${topicLabel}] Attempt ${attempts}/${maxAttempts}`);
+    const jsonContent = content.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    const topicData = JSON.parse(jsonContent);
 
-        const response = await client.chat.completions.create({
-            model: "gpt-4o",
-            messages: [
-                {
-                    role: "system",
-                    content: "You are a professional academic question generator for GCSE and A-Level education. Your specialty is creating HIGH-QUALITY AO2 questions that require real reasoning, application, and interpretation - NOT simple recall. AO2 questions MUST include scenarios, data, experiments, or cause-effect reasoning. CRITICAL: Use PLAIN TEXT ONLY - no superscripts, subscripts, or special Unicode characters. Write 'O2-' not 'O²⁻', 'MgO2' not 'MgO₂'. Follow the provided examples exactly. Always respond with VALID JSON only."
-                },
-                {
-                    role: "user",
-                    content: userContent,
-                },
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.5,
-            max_tokens: 2048,
-        });
-
-        console.log(`✅ [${topicLabel}] Received response from OpenAI (Attempt ${attempts})`);
-
-        const content = response.choices[0].message.content;
-        if (!content) throw new Error(`No content returned for ${topicLabel}`);
-
-        let jsonContent = content.trim();
-        jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-
-        const parsed = JSON.parse(jsonContent) as {
-            topicTitle: string;
-            questions: Array<{
-                text: string;
-                options: string[];
-                correctAnswer: number;
-            }>;
-        };
-
-        if (parsed.questions.length !== 10) {
-            console.warn(`⚠️ [${topicLabel}] Expected 10 questions, got ${parsed.questions.length}`);
-        }
-
-        // Transform to our format
-        let questions: GeneratedQuestion[] = parsed.questions.map((q, index) => ({
-            text: q.text,
-            type: "MULTIPLE_CHOICE" as const,
-            options: q.options,
-            correctAnswer: q.correctAnswer,
-            maxMarks: 1,
-            topic: `${topicLabel}: ${parsed.topicTitle}`,
-            questionNumber: index + 1
-        }));
-
-        // SANITIZE all questions
-        console.log(`🧹 [${topicLabel}] Sanitizing text formatting...`);
-        questions = questions.map(sanitizeQuestion);
-
-        // VALIDATION 1: Check AO2 quality
-        const ao2Validation = validateAO2Quality(questions);
-
-        // VALIDATION 2: Check formatting
-        const formatValidation = validateFormatting(questions);
-
-        const allValid = ao2Validation.valid && formatValidation.valid;
-
-        if (allValid) {
-            console.log(`✅ [${topicLabel}] AO2 validation PASSED`);
-            console.log(`✅ [${topicLabel}] Formatting validation PASSED`);
-            result = {
-                topicTitle: `${topicLabel}: ${parsed.topicTitle}`,
-                topicLabel,
-                questions,
-                answerSequence
-            };
-        } else {
-            if (!ao2Validation.valid) {
-                console.warn(`⚠️ [${topicLabel}] AO2 validation FAILED on attempt ${attempts}:`);
-                ao2Validation.issues.forEach(issue => console.warn(`   - ${issue}`));
-            }
-
-            if (!formatValidation.valid) {
-                console.warn(`⚠️ [${topicLabel}] Formatting validation FAILED on attempt ${attempts}:`);
-                formatValidation.issues.forEach(issue => console.warn(`   - ${issue}`));
-            }
-
-            if (attempts < maxAttempts) {
-                console.log(`🔄 [${topicLabel}] Retrying with stricter instructions...`);
-            } else {
-                console.warn(`⚠️ [${topicLabel}] Max attempts reached. Using sanitized questions despite validation issues.`);
-                result = {
-                    topicTitle: `${topicLabel}: ${parsed.topicTitle}`,
-                    topicLabel,
-                    questions, // Already sanitized
-                    answerSequence
-                };
-            }
-        }
-    }
-
-    if (!result) {
-        throw new Error(`Failed to generate quality questions for ${topicLabel}`);
-    }
-
-    console.log(`🎉 [${topicLabel}] Generated ${result.questions.length} questions for "${result.topicTitle}"`);
-
-    return result;
+    return topicData;
 }
 
 /**
- * Process 3 images concurrently to generate a complete retrieval quiz
+ * Generate a complete 30-question retrieval quiz from 3 images using concurrent API calls
  */
-export async function generateRetrievalQuizConcurrent(
+export async function generateCompleteRetrievalQuiz(
     apiKey: string,
     images: [string, string, string],
-    answerSequences: [string, string, string],
     educationLevel: "GCSE" | "A-LEVEL"
-): Promise<TopicQuestions[]> {
-    console.log("🚀 Starting concurrent processing of 3 images...");
+): Promise<{
+    title: string;
+    topics: Array<{
+        name: string;
+        questions: Array<{
+            question: string;
+            options: string[];
+        }>;
+    }>;
+    answer_key: string[];
+}> {
+    const client = new OpenAI({
+        apiKey,
+        baseURL: "https://api.openai.com/v1",
+    });
 
-    const topicLabels = ["Topic A", "Topic B", "Topic C"] as const;
+    console.log("🚀 Starting concurrent API calls for 3 topics...");
 
-    // Process all 3 images concurrently
-    const promises = images.map((image, index) =>
+    // Define topic information
+    const topicInfo = [
+        { name: "Topic A", description: "revised last week, first picture" },
+        { name: "Topic B", description: "revised 2–3 weeks ago, second picture" },
+        { name: "Topic C", description: "revised 4+ weeks ago, third picture" }
+    ];
+
+    // Make concurrent API calls for all 3 topics
+    const topicPromises = images.map((image, index) => 
         generateTopicQuestions(
-            apiKey,
+            client,
             image,
-            topicLabels[index],
-            answerSequences[index],
+            topicInfo[index].name,
+            topicInfo[index].description,
             educationLevel
         )
     );
 
-    const results = await Promise.all(promises);
+    console.log("⏳ Waiting for all 3 API calls to complete...");
+    const topicResults = await Promise.all(topicPromises);
+    console.log("✅ All 3 API calls completed successfully");
 
-    console.log("✅ All 3 topics processed successfully!");
-    console.log(`📊 Total questions: ${results.reduce((sum, r) => sum + r.questions.length, 0)}`);
+    // Combine all answer keys into a single 30-letter sequence
+    const combinedAnswerKey: string[] = [];
+    topicResults.forEach(topic => {
+        combinedAnswerKey.push(...topic.answer_key);
+    });
 
-    return results;
+    // Create the final quiz structure
+    const quiz = {
+        title: `Retrieval Quiz – ${new Date().toLocaleDateString()}`,
+        topics: topicResults.map(topic => ({
+            name: topic.name,
+            questions: topic.questions
+        })),
+        answer_key: combinedAnswerKey
+    };
+
+    console.log(`📊 Combined quiz: ${quiz.topics.length} topics, ${combinedAnswerKey.length} total questions`);
+
+    return quiz;
+}
+
+/**
+ * Convert demo quiz format to GeneratedQuestion format for PDF generation
+ */
+function convertQuizToGeneratedQuestions(quiz: {
+    title: string;
+    topics: Array<{
+        name: string;
+        questions: Array<{
+            question: string;
+            options: string[];
+        }>;
+    }>;
+    answer_key: string[];
+}): GeneratedQuestion[] {
+    const questions: GeneratedQuestion[] = [];
+    let questionIndex = 0;
+
+    const letterToIndex = { a: 0, b: 1, c: 2, d: 3 } as const;
+
+    quiz.topics.forEach((topic) => {
+        topic.questions.forEach((question, qIndex) => {
+            const answerLetter = quiz.answer_key[questionIndex];
+            const correctAnswer = letterToIndex[answerLetter as keyof typeof letterToIndex];
+
+            questions.push({
+                text: question.question,
+                type: "MULTIPLE_CHOICE" as const,
+                options: question.options,
+                correctAnswer,
+                maxMarks: 1,
+                topic: topic.name,
+                questionNumber: qIndex + 1
+            });
+
+            questionIndex++;
+        });
+    });
+
+    return questions;
+}
+
+/**
+ * Generate and shuffle a complete retrieval quiz using concurrent API calls
+ */
+export async function generateAndShuffleRetrievalQuiz(
+    apiKey: string,
+    images: [string, string, string],
+    educationLevel: "GCSE" | "A-LEVEL"
+): Promise<{
+    questions: GeneratedQuestion[];
+    originalAnswerKey: string[];
+    shuffledAnswerKey: string[];
+}> {
+    // Import the shuffle function
+    const { shuffleQuiz } = await import('./shuffle-quiz');
+
+    // Generate the original quiz using concurrent API calls
+    const originalQuiz = await generateCompleteRetrievalQuiz(apiKey, images, educationLevel);
+    console.log(originalQuiz);
+
+    // Apply shuffling using the exact demo logic
+    const shuffledQuiz = shuffleQuiz(originalQuiz);
+
+    // Convert to GeneratedQuestion format for PDF generation
+    const questions = convertQuizToGeneratedQuestions(shuffledQuiz);
+
+    return {
+        questions,
+        originalAnswerKey: originalQuiz.answer_key,
+        shuffledAnswerKey: shuffledQuiz.answer_key
+    };
 }
