@@ -55,32 +55,56 @@ export async function POST(request: NextRequest) {
 
     console.log(`📁 Uploading ${files.length} images to Vercel Blob...`);
 
-    // Upload all images to Vercel Blob concurrently
-    const uploadPromises = files.map(async (file, index) => {
-      const filename = `quiz-image-${index + 1}-${Date.now()}.${file.name.split('.').pop()}`;
-      
-      console.log(`⬆️ Uploading ${filename} (${(file.size / 1024 / 1024).toFixed(2)}MB)...`);
-      
-      const blob = await put(filename, file, {
-        access: 'public',
-        // Set TTL to 1 hour for ephemeral behavior
-        addRandomSuffix: true,
+    try {
+      // Upload all images to Vercel Blob concurrently
+      const uploadPromises = files.map(async (file, index) => {
+        const filename = `quiz-image-${index + 1}-${Date.now()}.${file.name.split('.').pop()}`;
+        
+        console.log(`⬆️ Uploading ${filename} (${(file.size / 1024 / 1024).toFixed(2)}MB)...`);
+        
+        const blob = await put(filename, file, {
+          access: 'public',
+          token: blobToken, // THIS WAS MISSING! ← Fixed
+          addRandomSuffix: true,
+        });
+        
+        console.log(`✅ Uploaded: ${blob.url}`);
+        return blob.url;
       });
+
+      const blobUrls = await Promise.all(uploadPromises);
       
-      console.log(`✅ Uploaded: ${blob.url}`);
-      return blob.url;
-    });
+      console.log("🎉 All images uploaded successfully to Vercel Blob");
+      console.log("🔗 Blob URLs:", blobUrls);
 
-    const blobUrls = await Promise.all(uploadPromises);
-    
-    console.log("🎉 All images uploaded successfully to Vercel Blob");
-    console.log("🔗 Blob URLs:", blobUrls);
+      return NextResponse.json({
+        success: true,
+        imageUrls: blobUrls,
+        message: `Successfully uploaded ${blobUrls.length} images to Vercel Blob`
+      });
+    } catch (blobError) {
+      console.error("❌ Vercel Blob upload failed, falling back to base64:", blobError);
+      
+      // Fallback to base64 if Blob upload fails
+      const base64Promises = files.map(async (file) => {
+        const buffer = await file.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        const mimeType = file.type;
+        return `data:${mimeType};base64,${base64}`;
+      });
 
-    return NextResponse.json({
-      success: true,
-      imageUrls: blobUrls,
-      message: `Successfully uploaded ${blobUrls.length} images to Vercel Blob`
-    });
+      const base64Urls = await Promise.all(base64Promises);
+      
+      console.log("✅ Fallback: Converted to base64 after Blob failure");
+      
+      return NextResponse.json({
+        success: true,
+        imageUrls: base64Urls,
+        message: `Blob upload failed, using base64 fallback: converted ${base64Urls.length} images`,
+        developmentMode: true,
+        fallbackUsed: true
+      });
+    }
 
   } catch (error) {
     console.error("❌ Image upload failed:", error);

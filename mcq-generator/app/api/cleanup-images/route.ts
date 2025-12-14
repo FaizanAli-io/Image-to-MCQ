@@ -16,12 +16,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get the Blob token
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    
+    if (!blobToken) {
+      console.log("⚠️ No BLOB_READ_WRITE_TOKEN found - skipping cleanup");
+      return NextResponse.json({
+        success: true,
+        deleted: 0,
+        failed: 0,
+        message: "No Blob token available - cleanup skipped"
+      });
+    }
+
     console.log(`🗑️ Cleaning up ${imageUrls.length} images from Vercel Blob...`);
 
     // Delete all images from Vercel Blob concurrently
     const deletePromises = imageUrls.map(async (url: string) => {
       try {
-        await del(url);
+        await del(url, { token: blobToken }); // Added token parameter
         console.log(`✅ Deleted: ${url}`);
         return { url, success: true };
       } catch (error) {

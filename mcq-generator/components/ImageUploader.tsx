@@ -194,8 +194,15 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
         throw new Error(errorData.error || 'Failed to upload images');
       }
 
-      const { imageUrls } = await uploadResponse.json();
-      console.log('✅ Images uploaded successfully:', imageUrls);
+      const { imageUrls, fallbackUsed, developmentMode } = await uploadResponse.json();
+      
+      if (fallbackUsed) {
+        console.log('⚠️ Using base64 fallback due to Blob storage issue');
+      } else if (developmentMode) {
+        console.log('🔧 Using base64 for local development');
+      } else {
+        console.log('✅ Images uploaded successfully to Vercel Blob:', imageUrls);
+      }
 
       // Create preview URLs for display (using the original files)
       const previewPromises = validFiles.map(file => {
@@ -254,8 +261,15 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
         throw new Error(errorData.error || 'Failed to upload image');
       }
 
-      const { imageUrls } = await uploadResponse.json();
-      console.log('✅ Single image uploaded successfully:', imageUrls[0]);
+      const { imageUrls, fallbackUsed, developmentMode } = await uploadResponse.json();
+      
+      if (fallbackUsed) {
+        console.log('⚠️ Using base64 fallback due to Blob storage issue');
+      } else if (developmentMode) {
+        console.log('🔧 Using base64 for local development');
+      } else {
+        console.log('✅ Single image uploaded successfully to Vercel Blob:', imageUrls[0]);
+      }
 
       // Create preview URL for display (using the original file)
       const reader = new FileReader();
