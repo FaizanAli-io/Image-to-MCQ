@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     console.log("📤 Starting image upload...");
