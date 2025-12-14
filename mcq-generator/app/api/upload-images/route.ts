@@ -24,6 +24,26 @@ export async function POST(request: NextRequest) {
   console.log("📏 Content-Length:", request.headers.get('content-length'));
   console.log("🔑 Origin:", request.headers.get('origin'));
   
+  // Check content length first
+  const contentLength = request.headers.get('content-length');
+  if (contentLength) {
+    const sizeMB = parseInt(contentLength) / 1024 / 1024;
+    console.log(`📊 Request size: ${sizeMB.toFixed(2)}MB`);
+    
+    // Vercel has a 4.5MB limit for serverless functions
+    if (sizeMB > 4.5) {
+      console.error(`❌ Request too large: ${sizeMB.toFixed(2)}MB > 4.5MB limit`);
+      return NextResponse.json(
+        { 
+          error: 'Request too large for Vercel serverless functions',
+          details: `${sizeMB.toFixed(2)}MB exceeds 4.5MB limit. Use smaller images or enable Vercel Blob storage.`,
+          sizeMB: sizeMB
+        },
+        { status: 413, headers: corsHeaders }
+      );
+    }
+  }
+  
   try {
     let formData;
     try {
@@ -34,8 +54,9 @@ export async function POST(request: NextRequest) {
       console.error("❌ [STEP 2] Failed to read FormData:", formError);
       return NextResponse.json(
         { 
-          error: 'Failed to read form data',
+          error: 'Failed to read form data - likely request too large',
           details: formError instanceof Error ? formError.message : 'Unknown error',
+          suggestion: 'Try smaller images or check Vercel Blob configuration'
         },
         { status: 400, headers: corsHeaders }
       );
@@ -68,6 +89,7 @@ export async function POST(request: NextRequest) {
     console.log("🔑 [STEP 4] Checking Blob token...");
     const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
     console.log("Token present:", !!blobToken);
+    console.log("Token prefix:", blobToken ? blobToken.substring(0, 20) + '...' : 'none');
     
     if (!blobToken) {
       console.log("⚠️ [FALLBACK] No token - using base64");
