@@ -21,16 +21,23 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const isMultipleImages = config.quizType === 'retrieval';
+
   const handleGenerate = async () => {
     if (!uploadedFiles) {
-      setError('Please upload 3 images (one for each topic)');
+      setError(isMultipleImages ? 'Please upload 3 images (one for each topic)' : 'Please upload 1 image');
       return;
     }
 
     const filesArray = Array.isArray(uploadedFiles) ? uploadedFiles : [uploadedFiles];
     
-    if (filesArray.length !== 3) {
+    if (isMultipleImages && filesArray.length !== 3) {
       setError('Retrieval Quiz requires exactly 3 images (Topic A, B, C)');
+      return;
+    }
+
+    if (!isMultipleImages && filesArray.length !== 1) {
+      setError('Mini Quiz requires exactly 1 image');
       return;
     }
 
@@ -39,25 +46,45 @@ export default function Home() {
     setQuestions([]);
 
     try {
-      // Use R2 workflow for retrieval quizzes
-      const formData = new FormData();
-      filesArray.forEach((file) => {
-        formData.append('images', file);
-      });
-      formData.append('educationLevel', config.educationLevel);
+      if (config.quizType === 'retrieval') {
+        // Use R2 workflow for retrieval quizzes (3 images)
+        const formData = new FormData();
+        filesArray.forEach((file) => {
+          formData.append('images', file);
+        });
+        formData.append('educationLevel', config.educationLevel);
 
-      const response = await fetch('/api/generate-questions-r2', {
-        method: 'POST',
-        body: formData,
-      });
+        const response = await fetch('/api/generate-questions-r2', {
+          method: 'POST',
+          body: formData,
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate questions');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to generate questions');
+        }
+
+        const data = await response.json();
+        setQuestions(data.questions);
+      } else if (config.quizType === 'mini') {
+        // Use Mini Quiz workflow (1 image)
+        const formData = new FormData();
+        formData.append('image', filesArray[0]);
+        formData.append('educationLevel', config.educationLevel);
+
+        const response = await fetch('/api/generate-mini-quiz', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to generate mini quiz');
+        }
+
+        const data = await response.json();
+        setQuestions(data.questions);
       }
-
-      const data = await response.json();
-      setQuestions(data.questions);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -133,11 +160,12 @@ export default function Home() {
               </h2>
               <ImageUploader 
                 onImageUpload={setUploadedFiles} 
-                multipleImages={true}
-                maxImages={3}
+                multipleImages={isMultipleImages}
+                maxImages={isMultipleImages ? 3 : 1}
               />
             </div>
-            <div className="bg-blue-600 rounded-xl shadow-md p-5 text-white">
+            {isMultipleImages && (
+              <div className="bg-blue-600 rounded-xl shadow-md p-5 text-white">
                 <div className="flex items-start gap-3">
                   <span className="text-2xl flex-shrink-0">💡</span>
                   <div>
@@ -150,6 +178,22 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+            )}
+            {!isMultipleImages && (
+              <div className="bg-purple-600 rounded-xl shadow-md p-5 text-white">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl flex-shrink-0">📝</span>
+                  <div>
+                    <p className="font-bold mb-2">Mini Quiz Requirements:</p>
+                    <div className="space-y-1 text-sm opacity-95">
+                      <p>• Upload <strong>1 image</strong> of your study material</p>
+                      <p>• AI will generate a comprehensive quiz</p>
+                      <p>• Perfect for focused topic review</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column - Configuration (35%) */}
@@ -232,13 +276,15 @@ export default function Home() {
                     <Download className="w-4 h-4" />
                     Download Quiz PDF
                   </button>
-                  <button
-                    onClick={handleDownloadAnswerKey}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all duration-150 shadow-md hover:shadow-lg hover:-translate-y-0.5"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Download Answer Key
-                  </button>
+                  {config.quizType === 'retrieval' && (
+                    <button
+                      onClick={handleDownloadAnswerKey}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all duration-150 shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Download Answer Key
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

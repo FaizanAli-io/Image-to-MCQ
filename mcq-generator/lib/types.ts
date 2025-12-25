@@ -7,6 +7,8 @@ export interface GeneratedQuestion {
   image?: string;
   topic?: string; // Topic label (e.g., "Topic A: Cell Biology")
   questionNumber?: number; // Question number within the quiz
+  aoLevel?: "AO1" | "AO2" | "AO3" | "REFLECTION"; // Assessment Objective level
+  markScheme?: any; // Mark scheme data for Mini Quiz
 }
 
 export interface TopicQuestions {

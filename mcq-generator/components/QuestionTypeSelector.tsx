@@ -55,8 +55,8 @@ export default function QuestionTypeSelector({ config, onChange }: QuestionTypeS
           className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 text-gray-900 font-medium cursor-pointer hover:border-gray-300"
         >
           <option value="retrieval">📚 Retrieval Quiz</option>
-          {/* COMMENTED OUT - Only Retrieval Quiz is active
           <option value="mini">📝 Mini Quiz</option>
+          {/* COMMENTED OUT - Only Retrieval and Mini Quiz are active
           <option value="assignment">📋 Assignment</option>
           <option value="application">🎯 Application Practice</option>
           <option value="marks-per-point">✍️ Marks Per Point</option>

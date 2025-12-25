@@ -142,9 +142,122 @@ export async function generateStructuredQuestions(
 //     const extractionResult = JSON.parse(jsonContent);
 
 //     console.log("✅ Text extraction completed successfully");
-    
+
 //     return extractionResult;
 // }
+
+// ============================================================================
+// MINI QUIZ WORKFLOW - Single image, single API call
+// ============================================================================
+
+/**
+ * Generate a Mini Quiz from a single image
+ */
+export async function generateMiniQuiz(
+    apiKey: string,
+    imageUrl: string,
+    educationLevel: "GCSE" | "A-LEVEL"
+): Promise<GeneratedQuestion[]> {
+    const client = new OpenAI({
+        apiKey,
+        baseURL: "https://api.openai.com/v1",
+    });
+
+    const levelDisplay = educationLevel === "GCSE" ? "GCSE" : "A-Level";
+
+    // Set question counts based on education level
+    let totalQuestions: number;
+    let ao1Count: number;
+    let ao2Count: number;
+    let ao3Count: number;
+    let ao1Range: string;
+    let ao2Range: string;
+    let ao3Range: string;
+
+    if (educationLevel === "GCSE") {
+        totalQuestions = 19;
+        ao1Count = 10;
+        ao2Count = 6;
+        ao3Count = 3;
+        ao1Range = "Questions 1–10";
+        ao2Range = "Questions 11–16";
+        ao3Range = "Questions 17-19";
+    } else { // A-LEVEL
+        totalQuestions = 24;
+        ao1Count = 8;
+        ao2Count = 10;
+        ao3Count = 6;
+        ao1Range = "Questions 1–8";
+        ao2Range = "Questions 9–18";
+        ao3Range = "Questions 19-24";
+    }
+    const prompt = `You are generating a ready-to-use ${levelDisplay} mini quiz for a single topic. Treat this as a final deliverable that students can use immediately.\n\n🔹 Format Requirements\n● Generate EXACTLY ${totalQuestions} questions for ONE topic inferred from the revision-guide image\n● Topic name must be derived from the image content\n● Plain text only (no markdown, tables, or images)\n● Base ALL questions strictly on the submitted revision-guide image\n\n🔹 Question Structure\n● The quiz must include:\n ○ ${ao1Count} AO1 questions (knowledge & understanding / recall)\n ○ ${ao2Count} AO2 questions (application, analysis, linked reasoning)\n ○ ${ao3Count} AO3 questions (evaluation, judgement, creation)\n\nAO1 – Knowledge & Understanding (${ao1Range})\n● Test direct recall and basic understanding from the image\n● Question types: define, state, name, identify, describe\n● Short, factual questions with clear right/wrong answers\n● No explanations or opinions\n\nAO2 – Apply & Analyse (${ao2Range})\n● Test application of knowledge and linked reasoning\n● Question types: explain why, describe how, compare, using your knowledge\n● Require 2–4 sentences of logical explanation\n● Must involve cause–effect, structure–function links, or application to a new situation\n● Must NOT be simple recall disguised as AO2\n\nAO3 – Evaluate & Create (${ao3Range})\n● Test higher-order thinking\n● Question types: evaluate, assess, predict and explain, suggest and justify\n● Open-ended questions with multiple valid answers\n● Marked on quality of reasoning, not a single correct point\n\n Strict Rules\n● Use ONLY the content shown in the image\n● Do NOT introduce external facts\n● Keep language clear and ${levelDisplay}-appropriate\n● Avoid essay-style questions\n● Ensure AO1, AO2, and AO3 are clearly distinct\n\n🔹 Mark Scheme Requirement\nAfter the quiz, provide a student-friendly mark scheme:\n● Bullet points per question\n● Clear expected answers for AO1\n● Indicative points for AO2 explanations\n● Level-based guidance for AO3 (what a good answer includes)\n● For AO2 and AO3 answers, include a short italic explanation (2 sentences are essential could be more) after each answer that explains the reasoning very simply for students who got it wrong\n\n🔹 JSON Output Format\nRespond with ONLY valid JSON in this exact format:\n{\n  \"topicName\": \"Topic Name from Image\",\n  \"questions\": [\n    {\n      \"text\": \"Question text here\",\n      \"type\": \"SHORT_ANSWER\",\n      \"maxMarks\": 2,\n      \"aoLevel\": \"AO1\"\n    }\n  ],\n  \"markScheme\": {\n    \"ao1\": [\n      {\n        \"questionNumber\": 1,\n        \"markPoints\": [\"Point 1\", \"Point 2\"]\n      }\n    ],\n    \"ao2\": [\n      {\n        \"questionNumber\": ${ao1Count + 1},\n        \"markPoints\": [\"Point 1\", \"Point 2\", \"*Simple explanation (up to 2 sentences) of why this answer is correct*\"]\n      }\n    ],\n    \"ao3\": [\n      {\n        \"questionNumber\": ${ao1Count + ao2Count + 1},\n        \"markPoints\": [\"Point 1\", \"Point 2\", \"*Simple explanation (up to 2 sentences) of what a good answer shows*\"]\n      }\n    ]\n  }\n}\n\nOutput ONLY:\n● The mini quiz\n● The mark scheme\nNo extra explanations or commentary.`;
+    const userContent = [
+        { type: "text" as const, text: prompt },
+        {
+            type: "image_url" as const,
+            image_url: {
+                url: imageUrl,
+                detail: "high" as const
+            }
+        }
+    ];
+
+    console.log("🚀 Generating Mini Quiz...");
+
+    const response = await client.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+            {
+                role: "user",
+                content: userContent,
+            },
+        ],
+        response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("No content returned from OpenAI response.");
+
+    const jsonContent = content.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    const result = JSON.parse(jsonContent);
+
+    console.log("✅ Mini Quiz generated successfully");
+
+    // Store the mark scheme for PDF generation
+    const markScheme = result.markScheme;
+
+    // Convert the response to GeneratedQuestion format
+    const questions: GeneratedQuestion[] = [];
+
+    if (result.questions && Array.isArray(result.questions)) {
+        result.questions.forEach((q: any, index: number) => {
+            // Determine AO level based on education level and question index
+            let aoLevel: "AO1" | "AO2" | "AO3";
+            if (educationLevel === "GCSE") {
+                if (index < 10) aoLevel = "AO1";
+                else if (index < 16) aoLevel = "AO2";
+                else aoLevel = "AO3";
+            } else { // A-LEVEL
+                if (index < 8) aoLevel = "AO1";
+                else if (index < 18) aoLevel = "AO2";
+                else aoLevel = "AO3";
+            }
+
+            questions.push({
+                text: q.text,
+                type: q.type || "SHORT_ANSWER",
+                maxMarks: q.maxMarks || 1,
+                topic: result.topicName || "Mini Quiz",
+                questionNumber: index + 1,
+                aoLevel: q.aoLevel || aoLevel,
+                markScheme: markScheme // Store mark scheme in questions array for PDF access
+            });
+        });
+    }
+
+    return questions;
+}
 
 // ============================================================================
 // CONCURRENT API CALLS WORKFLOW - 3 separate calls, each returning 10 MCQs
@@ -235,7 +348,7 @@ export async function generateCompleteRetrievalQuiz(
     ];
 
     // Make concurrent API calls for all 3 topics
-    const topicPromises = images.map((image, index) => 
+    const topicPromises = images.map((image, index) =>
         generateTopicQuestions(
             client,
             image,

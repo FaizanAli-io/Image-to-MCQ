@@ -250,6 +250,164 @@ function preprocessScientificText(text: string): string {
   return processed;
 }
 
+/**
+ * Render text with italic formatting support
+ * Detects text between asterisks (*text*) and renders it in italics
+ * Handles line wrapping while preserving italic formatting
+ */
+function renderTextWithItalics(
+  doc: jsPDF,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  fontSize: number = 11
+): { height: number; lines: number } {
+  const lineHeight = fontSize * 0.8;
+  doc.setFontSize(fontSize);
+  
+  // Parse the text into segments with formatting info
+  const segments = parseTextSegments(text);
+  
+  // Wrap text while preserving formatting
+  const wrappedLines = wrapTextWithFormatting(doc, segments, maxWidth);
+  
+  // Render each line
+  let currentY = y;
+  wrappedLines.forEach(line => {
+    renderFormattedLine(doc, line, x, currentY, fontSize);
+    currentY += lineHeight;
+  });
+  
+  return {
+    height: wrappedLines.length * lineHeight,
+    lines: wrappedLines.length
+  };
+}
+
+/**
+ * Parse text into segments with formatting information
+ * Automatically adds bold "Explanation:" label before italic text
+ */
+function parseTextSegments(text: string): Array<{ text: string; isItalic: boolean; isBold: boolean }> {
+  const segments: Array<{ text: string; isItalic: boolean; isBold: boolean }> = [];
+  const parts = text.split(/(\*[^*]*\*)/);
+  
+  parts.forEach(part => {
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+      // This is italic text - remove asterisks and add bold "Explanation:" label
+      const italicText = part.slice(1, -1);
+      
+      // Check if it already starts with "Explanation:" to avoid duplication
+      if (!italicText.toLowerCase().startsWith('explanation:')) {
+        // Add bold "Explanation:" label followed by italic explanation text
+        segments.push({ text: 'Explanation:', isItalic: false, isBold: true });
+        segments.push({ text: ' ' + italicText, isItalic: true, isBold: false });
+      } else {
+        // If it already has "Explanation:", make just that part bold
+        if (italicText.toLowerCase().startsWith('explanation:')) {
+          segments.push({ text: 'Explanation:', isItalic: false, isBold: true });
+          segments.push({ text: italicText.substring(12), isItalic: true, isBold: false }); // Remove "Explanation:" and add rest as italic
+        } else {
+          segments.push({ text: italicText, isItalic: true, isBold: false });
+        }
+      }
+    } else if (part) {
+      // This is normal text
+      segments.push({ text: part, isItalic: false, isBold: false });
+    }
+  });
+  
+  return segments;
+}
+
+/**
+ * Wrap text segments while preserving formatting
+ */
+function wrapTextWithFormatting(
+  doc: jsPDF,
+  segments: Array<{ text: string; isItalic: boolean; isBold: boolean }>,
+  maxWidth: number
+): Array<Array<{ text: string; isItalic: boolean; isBold: boolean }>> {
+  const lines: Array<Array<{ text: string; isItalic: boolean; isBold: boolean }>> = [];
+  let currentLine: Array<{ text: string; isItalic: boolean; isBold: boolean }> = [];
+  let currentLineWidth = 0;
+  
+  segments.forEach(segment => {
+    const words = segment.text.split(' ');
+    
+    words.forEach((word, wordIndex) => {
+      if (wordIndex > 0) word = ' ' + word; // Add space back except for first word
+      
+      // Set font style to measure width correctly
+      const fontStyle = segment.isBold ? "bold" : (segment.isItalic ? "italic" : "normal");
+      doc.setFont("helvetica", fontStyle);
+      const wordWidth = doc.getTextWidth(word);
+      
+      // Check if adding this word would exceed line width
+      if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
+        // Start new line
+        lines.push([...currentLine]);
+        currentLine = [{ text: word.trim(), isItalic: segment.isItalic, isBold: segment.isBold }];
+        currentLineWidth = doc.getTextWidth(word.trim());
+      } else {
+        // Add to current line
+        if (currentLine.length > 0 && 
+            currentLine[currentLine.length - 1].isItalic === segment.isItalic &&
+            currentLine[currentLine.length - 1].isBold === segment.isBold) {
+          // Merge with previous segment if same formatting
+          currentLine[currentLine.length - 1].text += word;
+        } else {
+          // Add as new segment
+          currentLine.push({ text: word.trim(), isItalic: segment.isItalic, isBold: segment.isBold });
+        }
+        currentLineWidth += wordWidth;
+      }
+    });
+  });
+  
+  // Add the last line if it has content
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+  
+  return lines;
+}
+
+/**
+ * Render a line with mixed formatting (bold, italic, normal)
+ */
+function renderFormattedLine(
+  doc: jsPDF,
+  segments: Array<{ text: string; isItalic: boolean; isBold: boolean }>,
+  x: number,
+  y: number,
+  fontSize: number
+) {
+  let currentX = x;
+  doc.setFontSize(fontSize);
+  
+  segments.forEach((segment, index) => {
+    // Add space before segment (except first)
+    if (index > 0) {
+      currentX += doc.getTextWidth(' ');
+    }
+    
+    // Set appropriate font style
+    const fontStyle = segment.isBold ? "bold" : (segment.isItalic ? "italic" : "normal");
+    doc.setFont("helvetica", fontStyle);
+    
+    // Render the text
+    doc.text(segment.text, currentX, y);
+    
+    // Update position
+    currentX += doc.getTextWidth(segment.text);
+  });
+  
+  // Reset to normal font
+  doc.setFont("helvetica", "normal");
+}
+
 export function generatePDF(questions: GeneratedQuestion[], title: string = "Generated Quiz"): jsPDF {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -258,6 +416,306 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
   const lineHeight = 7;
   let yPosition = margin;
 
+  // Check if this is a Mini Quiz (has aoLevel property)
+  const isMiniQuiz = questions.some(q => q.aoLevel);
+  
+  if (isMiniQuiz) {
+    // Mini Quiz Format
+    const topicName = questions[0]?.topic || "Mini Quiz";
+    
+    // Determine education level and question counts from the questions array
+    const totalQuestions = questions.length;
+    let ao1Count: number, ao2Count: number, ao3Count: number;
+    let isGCSE = false;
+    
+    // Determine if this is GCSE or A-Level based on total questions
+    if (totalQuestions === 19) {
+      // GCSE
+      isGCSE = true;
+      ao1Count = 10;
+      ao2Count = 6;
+      ao3Count = 3;
+    } else {
+      // A-Level (24 questions)
+      isGCSE = false;
+      ao1Count = 8;
+      ao2Count = 10;
+      ao3Count = 6;
+    }
+    
+    // Title
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${topicName} – Mini Quiz`, margin, yPosition);
+    yPosition += lineHeight * 2;
+
+    // AO1 Section
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`AO1 – Remember & Understand (${ao1Count} questions)`, margin, yPosition);
+    yPosition += lineHeight * 1.5;
+
+    // AO1 Questions
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    questions.slice(0, ao1Count).forEach((question, index) => {
+      if (yPosition > pageHeight - 40) {
+        doc.addPage();
+        yPosition = margin;
+      }
+
+      const questionText = `${index + 1}. ${preprocessScientificText(question.text)}`;
+      const questionResult = renderFormattedText(
+        doc, 
+        questionText, 
+        margin, 
+        yPosition, 
+        pageWidth - margin * 2,
+        11
+      );
+      yPosition += questionResult.height + 5;
+    });
+
+    yPosition += lineHeight;
+
+    // AO2 Section
+    if (yPosition > pageHeight - 60) {
+      doc.addPage();
+      yPosition = margin;
+    }
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`AO2 – Apply & Analyse (${ao2Count} questions)`, margin, yPosition);
+    yPosition += lineHeight * 1.5;
+
+    // AO2 Questions
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    questions.slice(ao1Count, ao1Count + ao2Count).forEach((question, index) => {
+      if (yPosition > pageHeight - 40) {
+        doc.addPage();
+        yPosition = margin;
+      }
+
+      const questionText = `${index + ao1Count + 1}. ${preprocessScientificText(question.text)}`;
+      const questionResult = renderFormattedText(
+        doc, 
+        questionText, 
+        margin, 
+        yPosition, 
+        pageWidth - margin * 2,
+        11
+      );
+      yPosition += questionResult.height + 5;
+    });
+
+    yPosition += lineHeight;
+
+    // AO3 Section
+    if (yPosition > pageHeight - 60) {
+      doc.addPage();
+      yPosition = margin;
+    }
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`AO3 – Evaluate & Create (${ao3Count} questions)`, margin, yPosition);
+    yPosition += lineHeight * 1.5;
+
+    // AO3 Questions
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    questions.slice(ao1Count + ao2Count, ao1Count + ao2Count + ao3Count).forEach((question, index) => {
+      if (yPosition > pageHeight - 40) {
+        doc.addPage();
+        yPosition = margin;
+      }
+
+      const questionText = `${index + ao1Count + ao2Count + 1}. ${preprocessScientificText(question.text)}`;
+      const questionResult = renderFormattedText(
+        doc, 
+        questionText, 
+        margin, 
+        yPosition, 
+        pageWidth - margin * 2,
+        11
+      );
+      yPosition += questionResult.height + 5;
+    });
+
+    yPosition += lineHeight;
+
+    // Add Student-Friendly Mark Scheme
+    yPosition += lineHeight * 2;
+    
+    // Always start mark scheme on a new page for better visibility
+    doc.addPage();
+    yPosition = margin;
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Student-Friendly Mark Scheme", margin, yPosition);
+    yPosition += lineHeight * 2;
+
+    // Get mark scheme from first question (they all have the same mark scheme)
+    const markScheme = questions[0]?.markScheme;
+    
+    if (markScheme) {
+      // AO1 Mark Scheme
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("AO1 – Remember & Understand", margin, yPosition);
+      yPosition += lineHeight * 1.5;
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      
+      if (markScheme.ao1 && Array.isArray(markScheme.ao1)) {
+        markScheme.ao1.forEach((item: any) => {
+          if (yPosition > pageHeight - 40) {
+            doc.addPage();
+            yPosition = margin;
+          }
+          
+          doc.setFont("helvetica", "bold");
+          doc.text(`Q${item.questionNumber}`, margin, yPosition);
+          doc.setFont("helvetica", "normal");
+          
+          if (item.markPoints && Array.isArray(item.markPoints)) {
+            item.markPoints.forEach((point: string) => {
+              const pointText = `• ${point}`;
+              // Use simple text rendering for mark scheme to avoid character encoding issues
+              const textWidth = doc.getTextWidth(pointText);
+              const maxWidth = pageWidth - margin * 2 - 15;
+              
+              if (textWidth > maxWidth) {
+                // Simple line wrapping for long text
+                const words = pointText.split(' ');
+                let currentLine = '';
+                
+                words.forEach(word => {
+                  const testLine = currentLine + (currentLine ? ' ' : '') + word;
+                  if (doc.getTextWidth(testLine) > maxWidth && currentLine) {
+                    doc.text(currentLine, margin + 10, yPosition);
+                    yPosition += 6;
+                    currentLine = word;
+                  } else {
+                    currentLine = testLine;
+                  }
+                });
+                
+                if (currentLine) {
+                  doc.text(currentLine, margin + 10, yPosition);
+                  yPosition += 6;
+                }
+              } else {
+                doc.text(pointText, margin + 10, yPosition);
+                yPosition += 6;
+              }
+            });
+          }
+          yPosition += 3;
+        });
+      }
+
+      yPosition += lineHeight;
+
+      // AO2 Mark Scheme
+      if (yPosition > pageHeight - 60) {
+        doc.addPage();
+        yPosition = margin;
+      }
+      
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("AO2 – Apply & Analyse", margin, yPosition);
+      yPosition += lineHeight * 1.5;
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      
+      if (markScheme.ao2 && Array.isArray(markScheme.ao2)) {
+        markScheme.ao2.forEach((item: any) => {
+          if (yPosition > pageHeight - 40) {
+            doc.addPage();
+            yPosition = margin;
+          }
+          
+          doc.setFont("helvetica", "bold");
+          doc.text(`Q${item.questionNumber}`, margin, yPosition);
+          doc.setFont("helvetica", "normal");
+          
+          if (item.markPoints && Array.isArray(item.markPoints)) {
+            item.markPoints.forEach((point: string) => {
+              const pointText = `• ${point}`;
+              // Use italic-aware text rendering for AO2 mark scheme
+              const textResult = renderTextWithItalics(
+                doc,
+                pointText,
+                margin + 10,
+                yPosition,
+                pageWidth - margin * 2 - 15,
+                11
+              );
+              yPosition += textResult.height + 2;
+            });
+          }
+          yPosition += 3;
+        });
+      }
+
+      yPosition += lineHeight;
+
+      // AO3 Mark Scheme
+      if (yPosition > pageHeight - 60) {
+        doc.addPage();
+        yPosition = margin;
+      }
+      
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("AO3 – Evaluate & Create", margin, yPosition);
+      yPosition += lineHeight * 1.5;
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      
+      if (markScheme.ao3 && Array.isArray(markScheme.ao3)) {
+        markScheme.ao3.forEach((item: any) => {
+          if (yPosition > pageHeight - 40) {
+            doc.addPage();
+            yPosition = margin;
+          }
+          
+          doc.setFont("helvetica", "bold");
+          doc.text(`Q${item.questionNumber}`, margin, yPosition);
+          doc.setFont("helvetica", "normal");
+          
+          if (item.markPoints && Array.isArray(item.markPoints)) {
+            item.markPoints.forEach((point: string) => {
+              const pointText = `• ${point}`;
+              // Use italic-aware text rendering for AO3 mark scheme
+              const textResult = renderTextWithItalics(
+                doc,
+                pointText,
+                margin + 10,
+                yPosition,
+                pageWidth - margin * 2 - 15,
+                11
+              );
+              yPosition += textResult.height + 2;
+            });
+          }
+          yPosition += 3;
+        });
+      }
+    }
+
+    return doc;
+  }
+
+  // Original format for Retrieval Quiz
   // Title
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
@@ -307,9 +765,6 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
       doc.setFont("helvetica", "bold");
       doc.text(currentTopic, margin, yPosition);
       yPosition += lineHeight * 0.8;
-      
-      // Add subtitle for timing
-     
       
       // Reset to normal font
       doc.setFontSize(11);
