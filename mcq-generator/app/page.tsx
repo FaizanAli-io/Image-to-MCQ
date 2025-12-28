@@ -114,7 +114,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">MCQ Generator</h1>
-                <p className="text-xs text-slate-600">AI-Powered Quiz Creation</p>
+                <p className="text-xs text-slate-600">Revision Specific Quiz Generator</p>
               </div>
             </div>
           </div>
@@ -136,7 +136,7 @@ export default function Home() {
             <span className="text-gray-400">→</span>
             <div className="flex items-center gap-2">
               <span className="text-2xl">🤖</span>
-              <span>AI Processing</span>
+              <span>Specific Quiz Generation</span>
             </div>
             <span className="text-gray-400">→</span>
             <div className="flex items-center gap-2">
@@ -187,8 +187,8 @@ export default function Home() {
                     <p className="font-bold mb-2">Mini Quiz Requirements:</p>
                     <div className="space-y-1 text-sm opacity-95">
                       <p>• Upload <strong>1 image</strong> of your study material</p>
-                      <p>• AI will generate a comprehensive quiz</p>
-                      <p>• Perfect for focused topic review</p>
+                      <p>• Complete questions to practice revised content</p>
+                      <p>• Self mark to assess how effective your revision was</p>
                     </div>
                   </div>
                 </div>
