@@ -40,6 +40,20 @@ export default function TopicMapperPage() {
   
   // Current step
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  
+  // Reset function to start over
+  const handleReset = () => {
+    setPastPaperFile(null);
+    setMarkSchemeFile(null);
+    setExtracting(false);
+    setExtractionError(null);
+    setQuestions([]);
+    setResults([]);
+    setStats(null);
+    setMapping(false);
+    setMappingError(null);
+    setCurrentStep(1);
+  };
 
   // Load topics from public/data on mount
   useEffect(() => {
@@ -156,10 +170,75 @@ export default function TopicMapperPage() {
       setResults(data.results);
       setStats(data.stats);
       setCurrentStep(3);
+      
+      // Automatically send email with Excel attachment
+      await sendEmailWithExcel(data.results, data.stats);
+      
     } catch (err: any) {
       setMappingError(err.message);
     } finally {
       setMapping(false);
+    }
+  };
+  
+  // Send email with Excel attachment
+  const sendEmailWithExcel = async (mappingResults: QuestionMapping[], mappingStats: any) => {
+    try {
+      // Prepare data for Excel
+      const excelData = mappingResults.map(r => ({
+        'Question ID': r.question_id,
+        'Primary Topic': r.primary_topic || '',
+        'Topic Name': r.topic_name || '',
+        'Secondary Topic': r.secondary_topic || '',
+        'Reason': r.reason,
+        'Needs Review': r.needs_review ? 'Yes' : 'No',
+        'Review Reason': r.review_reason || ''
+      }));
+      
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      
+      // Set column widths
+      worksheet['!cols'] = [
+        { wch: 15 },  // Question ID
+        { wch: 15 },  // Primary Topic
+        { wch: 35 },  // Topic Name
+        { wch: 15 },  // Secondary Topic
+        { wch: 60 },  // Reason
+        { wch: 12 },  // Needs Review
+        { wch: 20 }   // Review Reason
+      ];
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Question Mappings');
+      
+      // Generate Excel buffer
+      const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      
+      // Convert buffer to base64 for JSON transmission
+      const base64Buffer = Buffer.from(excelBuffer).toString('base64');
+      
+      // Send email via API
+      const emailResponse = await fetch('/api/send-excel-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          excelBuffer: base64Buffer,
+          filename: 'mapped_questions.xlsx',
+          stats: mappingStats
+        })
+      });
+      
+      if (emailResponse.ok) {
+        console.log('Email sent successfully');
+      } else {
+        const errorData = await emailResponse.json();
+        console.error('Email sending failed:', errorData.error);
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      // Don't throw - email is optional, mapping results are still available
     }
   };
 
@@ -214,34 +293,61 @@ export default function TopicMapperPage() {
       {/* Header with Chemistry Theme */}
       <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-8 py-6">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Beaker className="w-12 h-12" />
-              <Sparkles className="w-5 h-5 absolute -top-1 -right-1 text-yellow-300" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Beaker className="w-12 h-12" />
+                <Sparkles className="w-5 h-5 absolute -top-1 -right-1 text-yellow-300" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold">Chemistry AI Mapper</h1>
+                <p className="text-blue-100 mt-1">PDF Extraction → Question Analysis → Topic Mapping</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-4xl font-bold">Chemistry AI Mapper</h1>
-              <p className="text-blue-100 mt-1">PDF Extraction → Question Analysis → Topic Mapping</p>
+            
+            {/* Navigation and Reset Buttons */}
+            <div className="flex items-center gap-3">
+              <a
+                href="/"
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-semibold transition-all backdrop-blur-sm border border-white/20"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                Home
+              </a>
+              
+              {currentStep > 1 && (
+                <button
+                  onClick={handleReset}
+                  className="flex items-center gap-2 bg-white text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Start Over
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-8 py-8">
-        {/* Step Indicator */}
-        <div className="mb-8">
+        {/* Step Indicator with Animation */}
+        <div className="mb-8 bg-white rounded-xl shadow-md p-6">
           <div className="flex items-center justify-between">
             {[1, 2, 3].map((step) => (
               <div key={step} className="flex items-center flex-1">
-                <div className={`flex items-center justify-center w-12 h-12 rounded-full font-bold text-lg ${
+                <div className={`flex items-center justify-center w-14 h-14 rounded-full font-bold text-lg transition-all duration-300 ${
                   currentStep >= step 
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' 
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-110' 
                     : 'bg-gray-200 text-gray-500'
-                }`}>
-                  {currentStep > step ? <CheckCircle2 className="w-6 h-6" /> : step}
+                } ${currentStep === step ? 'ring-4 ring-indigo-200 animate-pulse' : ''}`}>
+                  {currentStep > step ? <CheckCircle2 className="w-7 h-7" /> : step}
                 </div>
                 <div className="ml-4 flex-1">
-                  <div className={`font-semibold ${currentStep >= step ? 'text-indigo-600' : 'text-gray-500'}`}>
+                  <div className={`font-bold text-lg transition-colors ${currentStep >= step ? 'text-indigo-600' : 'text-gray-500'}`}>
                     {step === 1 && 'Upload PDFs'}
                     {step === 2 && 'Review Questions'}
                     {step === 3 && 'View Results'}
@@ -249,7 +355,7 @@ export default function TopicMapperPage() {
                   <div className="text-sm text-gray-600">
                     {step === 1 && 'Past paper & mark scheme'}
                     {step === 2 && 'Extracted questions'}
-                    {step === 3 && 'Topic mappings'}
+                    {step === 3 && 'Topic mappings & email'}
                   </div>
                 </div>
                 {step < 3 && (
