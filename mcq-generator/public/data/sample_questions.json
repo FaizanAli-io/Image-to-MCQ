@@ -1,0 +1,127 @@
+[
+  {
+    "question_id": "Q1a",
+    "text": "Name the models of the atom shown in the figure (Model A and Model B).",
+    "mark_scheme": "Model A: plum pudding (allow Thomson model); Model B: Bohr (allow nuclear, planetary, or Rutherford-Bohr model)."
+  },
+  {
+    "question_id": "Q1b",
+    "text": "Compare model A (Plum Pudding) with the model of the atom used today. Use the figure provided.",
+    "mark_scheme": "Level 2 (3-4 marks): Scientifically relevant features identified and compared clearly. Indicative content: Similarities: both contain electrons, both are neutral overall. Differences: Model A has no nucleus/protons/neutrons; Model A is a ball of positive charge vs today's central positive nucleus; Model A has random electron distribution vs today's shells/energy levels; Model A has mass spread throughout vs today's concentrated mass in center; Model A has no empty space vs today's mostly empty space."
+  },
+  {
+    "question_id": "Q1c",
+    "text": "Define the term ‘isotopes’. Refer to subatomic particles in your answer.",
+    "mark_scheme": "Atoms with the same number of protons (allow atoms of the same element/atomic number) with different numbers of neutrons."
+  },
+  {
+    "question_id": "Q2a",
+    "text": "Which particle has no electrical charge? [Options: Electron, Neutron, Proton]",
+    "mark_scheme": "Neutron"
+  },
+  {
+    "question_id": "Q2b",
+    "text": "Which particles have the same relative mass? [Options: Electron and neutron, Electron and proton, Neutron and proton]",
+    "mark_scheme": "A neutron and a proton"
+  },
+  {
+    "question_id": "Q2c",
+    "text": "The formula of a compound is N2O. How many of each type of atom are in one molecule of N2O?",
+    "mark_scheme": "Nitrogen: 2; Oxygen: 1."
+  },
+  {
+    "question_id": "Q2d",
+    "text": "An atom of element Z contains 3 electrons, 4 neutrons, and 3 protons. Give the name of element Z using the periodic table.",
+    "mark_scheme": "Lithium (allow Li)."
+  },
+  {
+    "question_id": "Q2e",
+    "text": "Complete the figure to show the position of the particles in an atom of element Z (3 electrons, 4 neutrons, 3 protons).",
+    "mark_scheme": "3 protons and 4 neutrons in the nucleus; 3 electrons arranged in shells (2, 1 configuration)."
+  },
+  {
+    "question_id": "Q3a",
+    "text": "Describe the plum pudding model of the atom.",
+    "mark_scheme": "A ball of positive charge (do not accept protons/nucleus) with (negative) electrons embedded."
+  },
+  {
+    "question_id": "Q3b",
+    "text": "Write these three particles in order of their discovery: electrons, neutrons, protons.",
+    "mark_scheme": "Earliest: Electrons; Middle: Protons; Latest: Neutrons."
+  },
+  {
+    "question_id": "Q3c",
+    "text": "The atomic number of tennessine (Ts) is 117. Predict the number of outer shell electrons and give a reason.",
+    "mark_scheme": "Number: 7; Reason: Tennessine is in Group 7 (allow: same as group number or it is a halogen)."
+  },
+  {
+    "question_id": "Q3d",
+    "text": "Suggest one reason why tennessine was not accepted as a new element by other scientists until 2015, despite being identified in 2010.",
+    "mark_scheme": "Time needed for peer review (allow the idea that other scientists had to check the results)."
+  },
+  {
+    "question_id": "Q3e",
+    "text": "Calculate the relative atomic mass (Ar) of element R using isotopes: Mass 6 (7.6%) and Mass 7 (92.4%). Give answer to 1 decimal place.",
+    "mark_scheme": "((6 x 7.6) + (7 x 92.4)) / 100 = 6.924; = 6.9."
+  },
+  {
+    "question_id": "Q4a",
+    "text": "Draw lines to label the parts of the atom (Neutron, Proton, etc.).",
+    "mark_scheme": "Correct matching of subatomic particles to their locations (nucleus vs shells)."
+  },
+  {
+    "question_id": "Q4b",
+    "text": "An atom of element Y has an atomic number of 9 and a mass number of 19. Give the number of electrons and neutrons.",
+    "mark_scheme": "Electrons: 9; Neutrons: 10."
+  },
+  {
+    "question_id": "Q4c",
+    "text": "Calculate the relative atomic mass (Ar) of element Z using isotopes: Mass 39 (93.3%) and Mass 41 (6.7%). Give answer to 3 significant figures.",
+    "mark_scheme": "((39 x 93.3) + (41 x 6.7)) / 100 = 39.134; = 39.1."
+  },
+  {
+    "question_id": "Q4d",
+    "text": "Suggest the identity of element Z (Ar = 39.1).",
+    "mark_scheme": "Potassium (K)."
+  },
+  {
+    "question_id": "Q4e",
+    "text": "Isotopes of the same element have different mass numbers because the isotopes have different numbers of __________.",
+    "mark_scheme": "Neutrons"
+  },
+  {
+    "question_id": "Q5a",
+    "text": "Which type of substance is hydrogen? [Options: Element, Compound, Mixture]",
+    "mark_scheme": "Element"
+  },
+  {
+    "question_id": "Q5b",
+    "text": "Using Figure 1, which diagram (A, B, C, D) represents a mixture of compounds?",
+    "mark_scheme": "A"
+  },
+  {
+    "question_id": "Q5c",
+    "text": "Using Figure 1, which diagram (A, B, C, D) represents a mixture of elements?",
+    "mark_scheme": "B"
+  },
+  {
+    "question_id": "Q5d",
+    "text": "Sand can be separated from a mixture of sand and water by __________.",
+    "mark_scheme": "Filtration (allow filtering)."
+  },
+  {
+    "question_id": "Q5e",
+    "text": "A mixture of four liquids (A: 97°C, B: 138°C, C: 78°C, D: 118°C) was distilled. Which liquid is collected first?",
+    "mark_scheme": "C (allow 78°C)."
+  },
+  {
+    "question_id": "Q5f",
+    "text": "Suggest what would happen to the temperature of the water as it flows through the condenser.",
+    "mark_scheme": "Increases (allow becomes warmer/hotter)."
+  },
+  {
+    "question_id": "Q5g",
+    "text": "Describe how to obtain sodium chloride crystals from sodium chloride solution by crystallisation.",
+    "mark_scheme": "Heat the solution until crystallisation point is reached (or start to form/reduce volume); leave the solution to cool/crystallise."
+  }
+]
