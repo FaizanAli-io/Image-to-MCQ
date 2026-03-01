@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Download, Beaker, Atom, FlaskConical, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface Question {
   question_id: string;
@@ -12,6 +13,7 @@ interface Question {
 interface QuestionMapping {
   question_id: string;
   primary_topic: string | null;
+  topic_name: string;
   secondary_topic: string | null;
   reason: string;
   needs_review: boolean;
@@ -172,21 +174,39 @@ export default function TopicMapperPage() {
     a.click();
   };
 
-  // Export mapping results as CSV
+  // Export mapping results as Excel
   const exportResults = () => {
-    const csv = [
-      'question_id,primary_topic,secondary_topic,reason,needs_review,review_reason',
-      ...results.map(r => 
-        `${r.question_id},${r.primary_topic || ''},${r.secondary_topic || ''},"${r.reason}",${r.needs_review},${r.review_reason || ''}`
-      )
-    ].join('\n');
+    // Prepare data for Excel
+    const excelData = results.map(r => ({
+      'Question ID': r.question_id,
+      'Primary Topic': r.primary_topic || '',
+      'Topic Name': r.topic_name || '',
+      'Secondary Topic': r.secondary_topic || '',
+      'Reason': r.reason,
+      'Needs Review': r.needs_review ? 'Yes' : 'No',
+      'Review Reason': r.review_reason || ''
+    }));
     
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mapped_questions.csv';
-    a.click();
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    
+    // Set column widths for better readability
+    worksheet['!cols'] = [
+      { wch: 15 },  // Question ID
+      { wch: 15 },  // Primary Topic
+      { wch: 35 },  // Topic Name
+      { wch: 15 },  // Secondary Topic
+      { wch: 60 },  // Reason
+      { wch: 12 },  // Needs Review
+      { wch: 20 }   // Review Reason
+    ];
+    
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Question Mappings');
+    
+    // Generate Excel file and trigger download
+    XLSX.writeFile(workbook, 'mapped_questions.xlsx');
   };
 
   return (
@@ -488,7 +508,7 @@ export default function TopicMapperPage() {
                     className="flex items-center gap-2 bg-white text-indigo-600 px-6 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition-colors shadow-lg"
                   >
                     <Download size={20} />
-                    Export CSV
+                    Export Excel
                   </button>
                 </div>
                 
@@ -509,9 +529,14 @@ export default function TopicMapperPage() {
                           <td className="px-6 py-4 font-mono text-sm font-semibold text-gray-900">{r.question_id}</td>
                           <td className="px-6 py-4">
                             {r.primary_topic ? (
-                              <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
-                                {r.primary_topic}
-                              </span>
+                              <div className="flex flex-col gap-1">
+                                <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+                                  {r.primary_topic}
+                                </span>
+                                {r.topic_name && (
+                                  <span className="text-xs text-gray-600">{r.topic_name}</span>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
