@@ -184,30 +184,138 @@ export default function TopicMapperPage() {
   // Send email with Excel attachment
   const sendEmailWithExcel = async (mappingResults: QuestionMapping[], mappingStats: any) => {
     try {
-      // Prepare data for Excel
-      const excelData = mappingResults.map(r => ({
-        'Question ID': r.question_id,
-        'Primary Topic': r.primary_topic || '',
-        'Topic Name': r.topic_name || '',
-        'Secondary Topic': r.secondary_topic || '',
-        'Reason': r.reason,
-        'Needs Review': r.needs_review ? 'Yes' : 'No',
-        'Review Reason': r.review_reason || ''
-      }));
+      // ===== USE SAME NEW HORIZONTAL STRUCTURE FOR EMAIL =====
+      
+      // Helper function to parse question_id
+      const parseQuestionId = (questionId: string): { main: number; sub: string } => {
+        const match = questionId.match(/^Q?(\d+)([a-i]?)$/i);
+        if (match) {
+          return {
+            main: parseInt(match[1], 10),
+            sub: match[2]?.toLowerCase() || ''
+          };
+        }
+        return { main: parseInt(questionId.replace(/\D/g, ''), 10) || 0, sub: '' };
+      };
+      
+      // Group results by main question number
+      const groupedByMain: { [key: number]: QuestionMapping[] } = {};
+      
+      mappingResults.forEach(result => {
+        const { main } = parseQuestionId(result.question_id);
+        if (!groupedByMain[main]) {
+          groupedByMain[main] = [];
+        }
+        groupedByMain[main].push(result);
+      });
+      
+      // Build Excel rows
+      const excelRows: any[] = [];
+      
+      // Dynamically determine max sub-question letter from actual data
+      let maxSubLetter = 'a';
+      mappingResults.forEach(result => {
+        const { sub } = parseQuestionId(result.question_id);
+        if (sub && sub > maxSubLetter) {
+          maxSubLetter = sub;
+        }
+      });
+      
+      // Generate sub-letters array up to the max found (e.g., if max is 'j', generate a-j)
+      const subLetters: string[] = [];
+      for (let i = 'a'.charCodeAt(0); i <= maxSubLetter.charCodeAt(0); i++) {
+        subLetters.push(String.fromCharCode(i));
+      }
+      
+      const sortedMainQuestions = Object.keys(groupedByMain)
+        .map(k => parseInt(k, 10))
+        .sort((a, b) => a - b);
+      
+      sortedMainQuestions.forEach(mainNum => {
+        const subQuestions = groupedByMain[mainNum];
+        
+        const row: any = {
+          'Question Number': mainNum,
+          'Linked Questions': '',
+          'Total Question Marks': 0
+        };
+        
+        subLetters.forEach(letter => {
+          row[letter] = '';
+          row[`${letter}_marks`] = '';
+        });
+        
+        let totalMarks = 0;
+        
+        subQuestions.forEach(subQ => {
+          const { sub } = parseQuestionId(subQ.question_id);
+          
+          if (sub && subLetters.includes(sub)) {
+            row[sub] = subQ.topic_name || '';
+            
+            const question = questions.find(q => q.question_id === subQ.question_id);
+            let marks = 0;
+            
+            if (question) {
+              const marksMatch = question.text.match(/\((\d+)\)|\[(\d+)\s*marks?\]/i) ||
+                                question.mark_scheme?.match(/\((\d+)\)|\[(\d+)\s*marks?\]/i);
+              if (marksMatch) {
+                marks = parseInt(marksMatch[1] || marksMatch[2], 10) || 0;
+              }
+            }
+            
+            row[`${sub}_marks`] = marks;
+            totalMarks += marks;
+          }
+        });
+        
+        row['Total Question Marks'] = totalMarks;
+        excelRows.push(row);
+      });
       
       // Create worksheet
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const worksheet = XLSX.utils.aoa_to_sheet([]);
       
-      // Set column widths
-      worksheet['!cols'] = [
-        { wch: 15 },  // Question ID
-        { wch: 15 },  // Primary Topic
-        { wch: 35 },  // Topic Name
-        { wch: 15 },  // Secondary Topic
-        { wch: 60 },  // Reason
-        { wch: 12 },  // Needs Review
-        { wch: 20 }   // Review Reason
+      const headers = [
+        'Question Number',
+        'Linked Questions',
+        'Total Question Marks'
       ];
+      
+      subLetters.forEach(letter => {
+        headers.push(letter);
+        headers.push('Marks for sub-question');
+      });
+      
+      XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A1' });
+      
+      excelRows.forEach((row, index) => {
+        const rowData = [
+          row['Question Number'],
+          row['Linked Questions'],
+          row['Total Question Marks']
+        ];
+        
+        subLetters.forEach(letter => {
+          rowData.push(row[letter] || '');
+          rowData.push(row[`${letter}_marks`] || '');
+        });
+        
+        XLSX.utils.sheet_add_aoa(worksheet, [rowData], { origin: `A${index + 2}` });
+      });
+      
+      const colWidths = [
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 22 }
+      ];
+      
+      subLetters.forEach(() => {
+        colWidths.push({ wch: 35 });
+        colWidths.push({ wch: 25 });
+      });
+      
+      worksheet['!cols'] = colWidths;
       
       // Create workbook
       const workbook = XLSX.utils.book_new();
@@ -255,30 +363,182 @@ export default function TopicMapperPage() {
 
   // Export mapping results as Excel
   const exportResults = () => {
-    // Prepare data for Excel
-    const excelData = results.map(r => ({
-      'Question ID': r.question_id,
-      'Primary Topic': r.primary_topic || '',
-      'Topic Name': r.topic_name || '',
-      'Secondary Topic': r.secondary_topic || '',
-      'Reason': r.reason,
-      'Needs Review': r.needs_review ? 'Yes' : 'No',
-      'Review Reason': r.review_reason || ''
-    }));
+    // ===== OLD EXCEL STRUCTURE (COMMENTED FOR SAFE REVERT) =====
+    // const excelData = results.map(r => ({
+    //   'Question ID': r.question_id,
+    //   'Primary Topic': r.primary_topic || '',
+    //   'Topic Name': r.topic_name || '',
+    //   'Secondary Topic': r.secondary_topic || '',
+    //   'Reason': r.reason,
+    //   'Needs Review': r.needs_review ? 'Yes' : 'No',
+    //   'Review Reason': r.review_reason || ''
+    // }));
+    // 
+    // const worksheet = XLSX.utils.json_to_sheet(excelData);
+    // 
+    // worksheet['!cols'] = [
+    //   { wch: 15 },  // Question ID
+    //   { wch: 15 },  // Primary Topic
+    //   { wch: 35 },  // Topic Name
+    //   { wch: 15 },  // Secondary Topic
+    //   { wch: 60 },  // Reason
+    //   { wch: 12 },  // Needs Review
+    //   { wch: 20 }   // Review Reason
+    // ];
+    // ===== END OLD EXCEL STRUCTURE =====
     
-    // Create worksheet
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    // ===== NEW HORIZONTAL EXCEL STRUCTURE IMPLEMENTATION =====
     
-    // Set column widths for better readability
-    worksheet['!cols'] = [
-      { wch: 15 },  // Question ID
-      { wch: 15 },  // Primary Topic
-      { wch: 35 },  // Topic Name
-      { wch: 15 },  // Secondary Topic
-      { wch: 60 },  // Reason
-      { wch: 12 },  // Needs Review
-      { wch: 20 }   // Review Reason
+    // Helper function to parse question_id into main number and sub-letter
+    const parseQuestionId = (questionId: string): { main: number; sub: string } => {
+      // Match patterns like Q1a, Q2b, 1a, 2b, etc.
+      const match = questionId.match(/^Q?(\d+)([a-i]?)$/i);
+      if (match) {
+        return {
+          main: parseInt(match[1], 10),
+          sub: match[2]?.toLowerCase() || ''
+        };
+      }
+      // Fallback: treat entire ID as main question
+      return { main: parseInt(questionId.replace(/\D/g, ''), 10) || 0, sub: '' };
+    };
+    
+    // Group results by main question number
+    const groupedByMain: { [key: number]: QuestionMapping[] } = {};
+    
+    results.forEach(result => {
+      const { main } = parseQuestionId(result.question_id);
+      if (!groupedByMain[main]) {
+        groupedByMain[main] = [];
+      }
+      groupedByMain[main].push(result);
+    });
+    
+    // Build Excel rows
+    const excelRows: any[] = [];
+    
+    // Dynamically determine max sub-question letter from actual data
+    let maxSubLetter = 'a';
+    results.forEach(result => {
+      const { sub } = parseQuestionId(result.question_id);
+      if (sub && sub > maxSubLetter) {
+        maxSubLetter = sub;
+      }
+    });
+    
+    // Generate sub-letters array up to the max found (e.g., if max is 'j', generate a-j)
+    const subLetters: string[] = [];
+    for (let i = 'a'.charCodeAt(0); i <= maxSubLetter.charCodeAt(0); i++) {
+      subLetters.push(String.fromCharCode(i));
+    }
+    
+    // Sort main question numbers
+    const sortedMainQuestions = Object.keys(groupedByMain)
+      .map(k => parseInt(k, 10))
+      .sort((a, b) => a - b);
+    
+    sortedMainQuestions.forEach(mainNum => {
+      const subQuestions = groupedByMain[mainNum];
+      
+      // Create row object
+      const row: any = {
+        'Question Number': mainNum,
+        'Linked Questions': '', // Leave blank as per requirements
+        'Total Question Marks': 0
+      };
+      
+      // Initialize all sub-question columns
+      subLetters.forEach(letter => {
+        row[letter] = '';
+        row[`${letter}_marks`] = '';
+      });
+      
+      // Fill in sub-question data
+      let totalMarks = 0;
+      
+      subQuestions.forEach(subQ => {
+        const { sub } = parseQuestionId(subQ.question_id);
+        
+        if (sub && subLetters.includes(sub)) {
+          // Set topic name in the sub-letter column
+          row[sub] = subQ.topic_name || '';
+          
+          // Extract marks from question text or mark_scheme
+          // Look for patterns like (2), [3 marks], (4 marks), etc.
+          const question = questions.find(q => q.question_id === subQ.question_id);
+          let marks = 0;
+          
+          if (question) {
+            const marksMatch = question.text.match(/\((\d+)\)|\[(\d+)\s*marks?\]/i) ||
+                              question.mark_scheme?.match(/\((\d+)\)|\[(\d+)\s*marks?\]/i);
+            if (marksMatch) {
+              marks = parseInt(marksMatch[1] || marksMatch[2], 10) || 0;
+            }
+          }
+          
+          // Set marks in the column after the sub-letter column
+          // We'll handle this by creating unique column names
+          row[`${sub}_marks`] = marks;
+          totalMarks += marks;
+        }
+      });
+      
+      row['Total Question Marks'] = totalMarks;
+      excelRows.push(row);
+    });
+    
+    // Create worksheet with proper column structure
+    const worksheet = XLSX.utils.aoa_to_sheet([]);
+    
+    // Build header row
+    const headers = [
+      'Question Number',
+      'Linked Questions',
+      'Total Question Marks'
     ];
+    
+    // Add sub-question columns (a, Marks for sub-question, b, Marks for sub-question, ...)
+    subLetters.forEach(letter => {
+      headers.push(letter);
+      headers.push('Marks for sub-question');
+    });
+    
+    // Add headers to worksheet
+    XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A1' });
+    
+    // Add data rows
+    excelRows.forEach((row, index) => {
+      const rowData = [
+        row['Question Number'],
+        row['Linked Questions'],
+        row['Total Question Marks']
+      ];
+      
+      // Add sub-question data
+      subLetters.forEach(letter => {
+        rowData.push(row[letter] || '');
+        rowData.push(row[`${letter}_marks`] || '');
+      });
+      
+      XLSX.utils.sheet_add_aoa(worksheet, [rowData], { origin: `A${index + 2}` });
+    });
+    
+    // Set column widths
+    const colWidths = [
+      { wch: 18 },  // Question Number
+      { wch: 18 },  // Linked Questions
+      { wch: 22 }   // Total Question Marks
+    ];
+    
+    // Add widths for sub-question columns
+    subLetters.forEach(() => {
+      colWidths.push({ wch: 35 });  // Topic name column
+      colWidths.push({ wch: 25 });  // Marks column
+    });
+    
+    worksheet['!cols'] = colWidths;
+    
+    // ===== END NEW HORIZONTAL EXCEL STRUCTURE =====
     
     // Create workbook
     const workbook = XLSX.utils.book_new();
