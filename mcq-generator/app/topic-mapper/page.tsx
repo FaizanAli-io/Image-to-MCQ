@@ -41,6 +41,10 @@ export default function TopicMapperPage() {
   // Current step
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   
+  // Modal state for viewing full question
+  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  
   // Reset function to start over
   const handleReset = () => {
     setPastPaperFile(null);
@@ -883,6 +887,7 @@ export default function TopicMapperPage() {
                     <thead className="bg-gray-50 border-b-2 border-gray-200">
                       <tr>
                         <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">Question ID</th>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">Question Text</th>
                         <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">Primary Topic</th>
                         <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">Secondary Topic</th>
                         <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">Status</th>
@@ -890,57 +895,74 @@ export default function TopicMapperPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {results.map((r, i) => (
-                        <tr key={i} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 font-mono text-sm font-semibold text-gray-900">{r.question_id}</td>
-                          <td className="px-6 py-4">
-                            {r.primary_topic ? (
-                              <div className="flex flex-col gap-1">
-                                <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
-                                  {r.primary_topic}
-                                </span>
-                                {r.topic_name && (
-                                  <span className="text-xs text-gray-600">{r.topic_name}</span>
-                                )}
+                      {results.map((r, i) => {
+                        const question = questions.find(q => q.question_id === r.question_id);
+                        const questionText = question?.text || 'N/A';
+                        
+                        return (
+                          <tr key={i} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-4 font-mono text-sm font-semibold text-gray-900">{r.question_id}</td>
+                            <td className="px-6 py-4 text-sm text-gray-700 max-w-lg">
+                              <div 
+                                className="line-clamp-3 cursor-pointer hover:text-indigo-600 transition-colors" 
+                                title="Click to view full question"
+                                onClick={() => {
+                                  setSelectedQuestion(question || null);
+                                  setShowQuestionModal(true);
+                                }}
+                              >
+                                {questionText}
                               </div>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            {r.secondary_topic ? (
-                              <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
-                                {r.secondary_topic}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            {r.review_reason === 'calculation_detected' && (
-                              <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-bold">
-                                DATA MANIP
-                              </span>
-                            )}
-                            {r.review_reason === 'dual_topic' && (
-                              <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold">
-                                DUAL TOPIC
-                              </span>
-                            )}
-                            {!r.needs_review && r.primary_topic && (
-                              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold">
-                                ✓ CLEAN
-                              </span>
-                            )}
-                            {r.needs_review && !r.review_reason && (
-                              <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold">
-                                ⚠ REVIEW
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600 max-w-md">{r.reason}</td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="px-6 py-4">
+                              {r.primary_topic ? (
+                                <div className="flex flex-col gap-1">
+                                  <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+                                    {r.primary_topic}
+                                  </span>
+                                  {r.topic_name && (
+                                    <span className="text-xs text-gray-600">{r.topic_name}</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              {r.secondary_topic ? (
+                                <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                                  {r.secondary_topic}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              {r.review_reason === 'calculation_detected' && (
+                                <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-bold">
+                                  DATA MANIP
+                                </span>
+                              )}
+                              {r.review_reason === 'dual_topic' && (
+                                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold">
+                                  DUAL TOPIC
+                                </span>
+                              )}
+                              {!r.needs_review && r.primary_topic && (
+                                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold">
+                                  ✓ CLEAN
+                                </span>
+                              )}
+                              {r.needs_review && !r.review_reason && (
+                                <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold">
+                                  ⚠ REVIEW
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600 max-w-md">{r.reason}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -949,6 +971,72 @@ export default function TopicMapperPage() {
           </div>
         )}
       </div>
+      
+      {/* Question Detail Modal */}
+      {showQuestionModal && selectedQuestion && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowQuestionModal(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <FileText className="w-6 h-6 text-white" />
+                <h3 className="text-2xl font-bold text-white">Question Details</h3>
+              </div>
+              <button
+                onClick={() => setShowQuestionModal(false)}
+                className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="p-8 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {/* Question ID */}
+              <div className="mb-6">
+                <label className="text-sm font-bold text-gray-500 uppercase tracking-wider">Question ID</label>
+                <p className="text-2xl font-mono font-bold text-indigo-600 mt-1">{selectedQuestion.question_id}</p>
+              </div>
+              
+              {/* Question Text */}
+              <div className="mb-6">
+                <label className="text-sm font-bold text-gray-500 uppercase tracking-wider">Question Text</label>
+                <div className="mt-2 p-6 bg-gray-50 rounded-xl border-2 border-gray-200">
+                  <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{selectedQuestion.text}</p>
+                </div>
+              </div>
+              
+              {/* Mark Scheme */}
+              {selectedQuestion.mark_scheme && (
+                <div className="mb-6">
+                  <label className="text-sm font-bold text-gray-500 uppercase tracking-wider">Mark Scheme</label>
+                  <div className="mt-2 p-6 bg-green-50 rounded-xl border-2 border-green-200">
+                    <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{selectedQuestion.mark_scheme}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-8 py-4 flex justify-end border-t">
+              <button
+                onClick={() => setShowQuestionModal(false)}
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
