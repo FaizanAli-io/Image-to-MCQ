@@ -4,6 +4,75 @@ import { useState, useEffect } from 'react';
 import { Download, Beaker, Atom, FlaskConical, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+// Subject configuration
+const SUBJECTS = {
+  chemistry: {
+    id: 'chemistry',
+    name: 'Chemistry',
+    csvFile: '/data/topics_master.csv',
+    icon: 'beaker',
+    gradient: 'from-blue-600 via-indigo-600 to-purple-600',
+    bgGradient: 'from-blue-50 via-indigo-50 to-purple-50',
+    activeColor: 'from-indigo-600 to-purple-600',
+    ringColor: 'ring-indigo-200',
+    textColor: 'text-indigo-600',
+    badgeColor: 'bg-indigo-100 text-indigo-800',
+    stepActiveColor: 'from-indigo-600 to-purple-600',
+    stepBarColor: 'bg-indigo-600',
+    cardBorder: 'border-indigo-500 bg-indigo-50',
+    cardHover: 'hover:border-indigo-500 hover:bg-indigo-50',
+    uploadBorder: 'border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50',
+    uploadIcon: 'bg-indigo-100 text-indigo-600',
+    resetText: 'text-indigo-600 hover:bg-indigo-50',
+    specLabel: 'GCSE Chemistry Specification',
+    emoji: '⚗️',
+  },
+  biology: {
+    id: 'biology',
+    name: 'Biology',
+    csvFile: '/data/topics_master_bio.csv',
+    icon: 'microscope',
+    gradient: 'from-green-600 via-emerald-600 to-teal-600',
+    bgGradient: 'from-green-50 via-emerald-50 to-teal-50',
+    activeColor: 'from-emerald-600 to-teal-600',
+    ringColor: 'ring-emerald-200',
+    textColor: 'text-emerald-600',
+    badgeColor: 'bg-emerald-100 text-emerald-800',
+    stepActiveColor: 'from-emerald-600 to-teal-600',
+    stepBarColor: 'bg-emerald-600',
+    cardBorder: 'border-emerald-500 bg-emerald-50',
+    cardHover: 'hover:border-emerald-500 hover:bg-emerald-50',
+    uploadBorder: 'border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50',
+    uploadIcon: 'bg-emerald-100 text-emerald-600',
+    resetText: 'text-emerald-600 hover:bg-emerald-50',
+    specLabel: 'GCSE Biology Specification',
+    emoji: '🧬',
+  },
+  physics: {
+    id: 'physics',
+    name: 'Physics',
+    csvFile: '/data/topics_master_phy.csv',
+    icon: 'zap',
+    gradient: 'from-orange-500 via-amber-500 to-yellow-500',
+    bgGradient: 'from-orange-50 via-amber-50 to-yellow-50',
+    activeColor: 'from-amber-500 to-orange-500',
+    ringColor: 'ring-amber-200',
+    textColor: 'text-amber-600',
+    badgeColor: 'bg-amber-100 text-amber-800',
+    stepActiveColor: 'from-amber-500 to-orange-500',
+    stepBarColor: 'bg-amber-500',
+    cardBorder: 'border-amber-500 bg-amber-50',
+    cardHover: 'hover:border-amber-500 hover:bg-amber-50',
+    uploadBorder: 'border-amber-300 bg-amber-50/50 hover:bg-amber-50',
+    uploadIcon: 'bg-amber-100 text-amber-600',
+    resetText: 'text-amber-600 hover:bg-amber-50',
+    specLabel: 'GCSE Physics Specification',
+    emoji: '⚡',
+  },
+} as const;
+
+type SubjectKey = keyof typeof SUBJECTS;
+
 interface Question {
   question_id: string;
   text: string;
@@ -21,6 +90,10 @@ interface QuestionMapping {
 }
 
 export default function TopicMapperPage() {
+  // Subject selection
+  const [subject, setSubject] = useState<SubjectKey | null>(null);
+  const subjectConfig = subject ? SUBJECTS[subject] : null;
+
   // Step 1: PDF Upload & Extraction
   const [pastPaperFile, setPastPaperFile] = useState<File | null>(null);
   const [markSchemeFile, setMarkSchemeFile] = useState<File | null>(null);
@@ -30,7 +103,7 @@ export default function TopicMapperPage() {
   // Step 2: Questions & Topics
   const [questions, setQuestions] = useState<Question[]>([]);
   const [topics, setTopics] = useState<any[]>([]);
-  const [loadingTopics, setLoadingTopics] = useState(true);
+  const [loadingTopics, setLoadingTopics] = useState(false);
   
   // Step 3: Mapping Results
   const [results, setResults] = useState<QuestionMapping[]>([]);
@@ -45,7 +118,7 @@ export default function TopicMapperPage() {
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   
-  // Reset function to start over
+  // Reset function to start over (keeps subject selection)
   const handleReset = () => {
     setPastPaperFile(null);
     setMarkSchemeFile(null);
@@ -59,24 +132,32 @@ export default function TopicMapperPage() {
     setCurrentStep(1);
   };
 
-  // Load topics from public/data on mount
+  // Full reset including subject
+  const handleFullReset = () => {
+    handleReset();
+    setSubject(null);
+    setTopics([]);
+  };
+
+  // Load topics when subject changes
   useEffect(() => {
+    if (!subject) return;
     const loadTopics = async () => {
+      setLoadingTopics(true);
       try {
-        const response = await fetch('/data/topics_master.csv');
+        const response = await fetch(SUBJECTS[subject].csvFile);
         const text = await response.text();
         const parsed = parseCSV(text);
         setTopics(parsed);
-        setLoadingTopics(false);
       } catch (err) {
         console.error('Failed to load topics:', err);
         setExtractionError('Failed to load topics database');
+      } finally {
         setLoadingTopics(false);
       }
     };
-    
     loadTopics();
-  }, []);
+  }, [subject]);
 
   // Parse CSV
   const parseCSV = (text: string): any[] => {
@@ -337,7 +418,7 @@ export default function TopicMapperPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           excelBuffer: base64Buffer,
-          filename: 'mapped_questions.xlsx',
+          filename: `mapped_questions_${subject || 'output'}.xlsx`,
           stats: mappingStats
         })
       });
@@ -549,23 +630,27 @@ export default function TopicMapperPage() {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Question Mappings');
     
     // Generate Excel file and trigger download
-    XLSX.writeFile(workbook, 'mapped_questions.xlsx');
+    XLSX.writeFile(workbook, `mapped_questions_${subject || 'output'}.xlsx`);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      {/* Header with Chemistry Theme */}
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-lg">
+    <div className={`min-h-screen bg-gradient-to-br ${subjectConfig ? subjectConfig.bgGradient : 'from-gray-50 to-gray-100'}`}>
+      {/* Header */}
+      <div className={`bg-gradient-to-r ${subjectConfig ? subjectConfig.gradient : 'from-gray-600 to-gray-700'} text-white shadow-lg transition-all duration-500`}>
         <div className="max-w-7xl mx-auto px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Beaker className="w-12 h-12" />
+                {subject === 'biology' ? <FlaskConical className="w-12 h-12" /> :
+                 subject === 'physics' ? <Atom className="w-12 h-12" /> :
+                 <Beaker className="w-12 h-12" />}
                 <Sparkles className="w-5 h-5 absolute -top-1 -right-1 text-yellow-300" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold">Chemistry AI Mapper</h1>
-                <p className="text-blue-100 mt-1">PDF Extraction → Question Analysis → Topic Mapping</p>
+                <h1 className="text-4xl font-bold">
+                  {subjectConfig ? `${subjectConfig.name} AI Mapper` : 'AI Past Paper Mapper'}
+                </h1>
+                <p className="text-white/80 mt-1">PDF Extraction → Question Analysis → Topic Mapping</p>
               </div>
             </div>
             
@@ -581,15 +666,27 @@ export default function TopicMapperPage() {
                 Home
               </a>
               
-              {currentStep > 1 && (
+              {subject && currentStep > 1 && (
                 <button
                   onClick={handleReset}
-                  className="flex items-center gap-2 bg-white text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl"
+                  className={`flex items-center gap-2 bg-white ${subjectConfig?.resetText} px-4 py-2 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                   Start Over
+                </button>
+              )}
+
+              {subject && (
+                <button
+                  onClick={handleFullReset}
+                  className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-semibold transition-all border border-white/20"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  Switch Subject
                 </button>
               )}
             </div>
@@ -598,6 +695,36 @@ export default function TopicMapperPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-8 py-8">
+
+        {/* SUBJECT SELECTOR - shown when no subject chosen */}
+        {!subject && (
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">Select a Subject</h2>
+            <p className="text-gray-500 mb-10 text-lg">Choose the subject to start mapping past paper questions</p>
+            <div className="grid grid-cols-3 gap-6 w-full max-w-3xl">
+              {(Object.values(SUBJECTS) as typeof SUBJECTS[SubjectKey][]).map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSubject(s.id as SubjectKey)}
+                  className={`group relative flex flex-col items-center gap-4 p-8 bg-white rounded-2xl border-2 border-gray-200 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105 ${s.cardHover}`}
+                >
+                  <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${s.gradient} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                    <span className="text-4xl">{s.emoji}</span>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-gray-900">{s.name}</p>
+                    <p className="text-sm text-gray-500 mt-1">{s.specLabel}</p>
+                  </div>
+                  <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${s.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* MAIN CONTENT - shown after subject is chosen */}
+        {subject && subjectConfig && (
+          <>
         {/* Step Indicator with Animation */}
         <div className="mb-8 bg-white rounded-xl shadow-md p-6">
           <div className="flex items-center justify-between">
@@ -605,13 +732,13 @@ export default function TopicMapperPage() {
               <div key={step} className="flex items-center flex-1">
                 <div className={`flex items-center justify-center w-14 h-14 rounded-full font-bold text-lg transition-all duration-300 ${
                   currentStep >= step 
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-110' 
+                    ? `bg-gradient-to-r ${subjectConfig.stepActiveColor} text-white shadow-lg scale-110` 
                     : 'bg-gray-200 text-gray-500'
-                } ${currentStep === step ? 'ring-4 ring-indigo-200 animate-pulse' : ''}`}>
+                } ${currentStep === step ? `ring-4 ${subjectConfig.ringColor} animate-pulse` : ''}`}>
                   {currentStep > step ? <CheckCircle2 className="w-7 h-7" /> : step}
                 </div>
                 <div className="ml-4 flex-1">
-                  <div className={`font-bold text-lg transition-colors ${currentStep >= step ? 'text-indigo-600' : 'text-gray-500'}`}>
+                  <div className={`font-bold text-lg transition-colors ${currentStep >= step ? subjectConfig.textColor : 'text-gray-500'}`}>
                     {step === 1 && 'Upload PDFs'}
                     {step === 2 && 'Review Questions'}
                     {step === 3 && 'View Results'}
@@ -623,7 +750,7 @@ export default function TopicMapperPage() {
                   </div>
                 </div>
                 {step < 3 && (
-                  <div className={`h-1 w-full mx-4 ${currentStep > step ? 'bg-indigo-600' : 'bg-gray-200'}`} />
+                  <div className={`h-1 w-full mx-4 ${currentStep > step ? subjectConfig.stepBarColor : 'bg-gray-200'}`} />
                 )}
               </div>
             ))}
@@ -634,10 +761,10 @@ export default function TopicMapperPage() {
         <div className="bg-white rounded-xl shadow-md p-6 mb-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Atom className="w-6 h-6 text-purple-600" />
+              <Atom className={`w-6 h-6 ${subjectConfig.textColor}`} />
               <div>
                 <h3 className="font-semibold text-gray-900">Topics Database</h3>
-                <p className="text-sm text-gray-600">GCSE Chemistry Specification</p>
+                <p className="text-sm text-gray-600">{subjectConfig.specLabel}</p>
               </div>
             </div>
             {loadingTopics ? (
@@ -659,13 +786,13 @@ export default function TopicMapperPage() {
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-md p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                <FileText className="w-6 h-6 text-indigo-600" />
+                <FileText className={`w-6 h-6 ${subjectConfig.textColor}`} />
                 Step 1: Upload PDF Files
               </h2>
               
               <div className="grid grid-cols-2 gap-6 mb-6">
                 {/* Past Paper Upload */}
-                <div className="border-2 border-dashed border-indigo-300 rounded-xl p-6 bg-indigo-50/50 hover:bg-indigo-50 transition-colors">
+                <div className={`border-2 border-dashed rounded-xl p-6 transition-colors ${subjectConfig.uploadBorder}`}>
                   <input
                     type="file"
                     accept=".pdf"
@@ -677,15 +804,11 @@ export default function TopicMapperPage() {
                     htmlFor="past-paper-upload"
                     className="cursor-pointer flex flex-col items-center"
                   >
-                    <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
-                      <FileText className="w-8 h-8 text-indigo-600" />
+                    <div className={`w-16 h-16 ${subjectConfig.uploadIcon} rounded-full flex items-center justify-center mb-4`}>
+                      <FileText className="w-8 h-8" />
                     </div>
-                    <p className="text-lg font-semibold text-gray-900 mb-2">
-                      Past Paper PDF
-                    </p>
-                    <p className="text-sm text-gray-600 text-center mb-4">
-                      Upload the exam questions PDF
-                    </p>
+                    <p className="text-lg font-semibold text-gray-900 mb-2">Past Paper PDF</p>
+                    <p className="text-sm text-gray-600 text-center mb-4">Upload the exam questions PDF</p>
                     {pastPaperFile && (
                       <div className="mt-4 px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-medium">
                         ✓ {pastPaperFile.name}
@@ -710,12 +833,8 @@ export default function TopicMapperPage() {
                     <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
                       <CheckCircle2 className="w-8 h-8 text-purple-600" />
                     </div>
-                    <p className="text-lg font-semibold text-gray-900 mb-2">
-                      Mark Scheme PDF
-                    </p>
-                    <p className="text-sm text-gray-600 text-center mb-4">
-                      Upload the marking guide PDF
-                    </p>
+                    <p className="text-lg font-semibold text-gray-900 mb-2">Mark Scheme PDF</p>
+                    <p className="text-sm text-gray-600 text-center mb-4">Upload the marking guide PDF</p>
                     {markSchemeFile && (
                       <div className="mt-4 px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-medium">
                         ✓ {markSchemeFile.name}
@@ -728,7 +847,7 @@ export default function TopicMapperPage() {
               <button
                 onClick={extractQuestions}
                 disabled={extracting || !pastPaperFile || !markSchemeFile}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                className={`w-full bg-gradient-to-r ${subjectConfig.activeColor} text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]`}
               >
                 {extracting ? (
                   <span className="flex items-center justify-center gap-3">
@@ -758,7 +877,7 @@ export default function TopicMapperPage() {
             <div className="bg-white rounded-xl shadow-md p-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                  <FlaskConical className="w-6 h-6 text-indigo-600" />
+                  <FlaskConical className={`w-6 h-6 ${subjectConfig.textColor}`} />
                   Step 2: Review Extracted Questions
                 </h2>
                 <button
@@ -812,7 +931,7 @@ export default function TopicMapperPage() {
               <button
                 onClick={runMapping}
                 disabled={mapping || !topics.length}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                className={`w-full bg-gradient-to-r ${subjectConfig.activeColor} text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]`}
               >
                 {mapping ? (
                   <span className="flex items-center justify-center gap-3">
@@ -871,11 +990,11 @@ export default function TopicMapperPage() {
             {/* Results Table */}
             {results.length > 0 && (
               <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6 flex justify-between items-center">
+                <div className={`bg-gradient-to-r ${subjectConfig.activeColor} px-8 py-6 flex justify-between items-center`}>
                   <h2 className="text-2xl font-bold text-white">Mapping Results</h2>
                   <button
                     onClick={exportResults}
-                    className="flex items-center gap-2 bg-white text-indigo-600 px-6 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition-colors shadow-lg"
+                    className={`flex items-center gap-2 bg-white ${subjectConfig.textColor} px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors shadow-lg`}
                   >
                     <Download size={20} />
                     Export Excel
@@ -904,7 +1023,7 @@ export default function TopicMapperPage() {
                             <td className="px-6 py-4 font-mono text-sm font-semibold text-gray-900">{r.question_id}</td>
                             <td className="px-6 py-4 text-sm text-gray-700 max-w-lg">
                               <div 
-                                className="line-clamp-3 cursor-pointer hover:text-indigo-600 transition-colors" 
+                                className={`line-clamp-3 cursor-pointer hover:${subjectConfig.textColor} transition-colors`}
                                 title="Click to view full question"
                                 onClick={() => {
                                   setSelectedQuestion(question || null);
@@ -917,7 +1036,7 @@ export default function TopicMapperPage() {
                             <td className="px-6 py-4">
                               {r.primary_topic ? (
                                 <div className="flex flex-col gap-1">
-                                  <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+                                  <span className={`px-3 py-1 ${subjectConfig.badgeColor} rounded-full text-sm font-medium`}>
                                     {r.primary_topic}
                                   </span>
                                   {r.topic_name && (
@@ -969,6 +1088,8 @@ export default function TopicMapperPage() {
               </div>
             )}
           </div>
+        )}
+        </>
         )}
       </div>
       
@@ -1029,7 +1150,7 @@ export default function TopicMapperPage() {
             <div className="bg-gray-50 px-8 py-4 flex justify-end border-t">
               <button
                 onClick={() => setShowQuestionModal(false)}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                className={`bg-gradient-to-r ${subjectConfig?.activeColor || 'from-indigo-600 to-purple-600'} text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all`}
               >
                 Close
               </button>
