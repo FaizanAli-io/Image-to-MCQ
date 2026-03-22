@@ -2,6 +2,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin":
+    "https://quizgenerator.pastpaperpal.co.uk",
+  "Access-Control-Allow-Methods":
+    "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: corsHeaders,
+  });
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -45,7 +62,7 @@ const CALC_KEYWORDS = [
   'what is the mass',
   'what is the volume',
   'how many moles',
-  
+
   // Data manipulation
   'use the graph',
   'from the graph',
@@ -59,7 +76,7 @@ const CALC_KEYWORDS = [
   'find the slope',
   'determine the rate',
   'calculate the rate',
-  
+
   // Statistical operations
   'find the mean',
   'calculate the mean',
@@ -71,7 +88,7 @@ const CALC_KEYWORDS = [
   'percentage increase',
   'percentage decrease',
   'percentage change',
-  
+
   // Mathematical operations
   'substitute',
   'convert',
@@ -112,15 +129,15 @@ function isDataManipulationQuestion(text: string): boolean {
    * These questions are NOT sent to AI - flagged for manual review immediately
    */
   const textLower = text.toLowerCase();
-  
+
   // Check for calculation/manipulation keywords
-  const hasManipulationKeyword = CALC_KEYWORDS.some(keyword => 
+  const hasManipulationKeyword = CALC_KEYWORDS.some(keyword =>
     textLower.includes(keyword)
   );
-  
+
   // Check for numerical indicators (graphs, tables, units, numbers)
   const hasNumericalData = hasNumericalIndicators(text);
-  
+
   // Flag if EITHER condition is true (more aggressive detection)
   return hasManipulationKeyword || hasNumericalData;
 }
@@ -128,19 +145,19 @@ function isDataManipulationQuestion(text: string): boolean {
 // ENHANCED: Build comprehensive topic reference
 function buildTopicReference(topics: TopicEntry[]): string {
   let reference = '=== AVAILABLE TOPICS ===\n\n';
-  
+
   for (const topic of topics) {
     const code = topic.Code.trim();
     reference += `CODE: ${code}\n`;
     reference += `NAME: ${topic.Name}\n`;
-    
+
     if (topic['Learning Outcomes']) {
       reference += `STUDENTS SHOULD BE ABLE TO: ${topic['Learning Outcomes']}\n`;
     }
-    
+
     reference += `DESCRIPTION: ${topic.Description}\n\n`;
   }
-  
+
   return reference;
 }
 
@@ -176,11 +193,11 @@ const FEW_SHOT_EXAMPLES = [
 
 // ENHANCED: Map single question with comprehensive validation
 async function mapQuestion(
-  question: Question, 
+  question: Question,
   topics: TopicEntry[]
 ): Promise<QuestionMapping> {
   const questionId = question.question_id;
-  
+
   // 1. DETECT DATA MANIPULATION QUESTIONS - DO NOT SEND TO AI
   if (isDataManipulationQuestion(question.text)) {
     return {
@@ -193,17 +210,17 @@ async function mapQuestion(
       review_reason: "calculation_detected"
     };
   }
-  
+
   // 2. BUILD USER PROMPT with question AND mark scheme
   let userContent = `Question ID: ${questionId}\n\nQUESTION: ${question.text}`;
-  
+
   if (question.mark_scheme) {
     userContent += `\n\nMARK SCHEME: ${question.mark_scheme}`;
   }
-  
+
   // 3. BUILD TOPIC REFERENCE
   const topicReference = buildTopicReference(topics);
-  
+
   // 4. BUILD SYSTEM PROMPT with enhanced instructions
   const systemPrompt = `You are a precise GCSE Chemistry topic classifier.
 
@@ -241,21 +258,21 @@ Return JSON with: question_id, primary_topic, topic_name, secondary_topic, reaso
   const messages: any[] = [
     { role: 'system', content: systemPrompt }
   ];
-  
+
   // Add few-shot examples
   for (const example of FEW_SHOT_EXAMPLES) {
     messages.push({
       role: 'user',
       content: `Question ID: ${example.answer.question_id}\n\nQUESTION: ${example.question}\n\nMARK SCHEME: ${example.mark_scheme}`
     });
-    
-    const secondaryTopic = example.answer.secondary_topic 
-      ? `"${example.answer.secondary_topic}"` 
+
+    const secondaryTopic = example.answer.secondary_topic
+      ? `"${example.answer.secondary_topic}"`
       : 'null';
-    const reviewReason = example.answer.review_reason 
-      ? `"${example.answer.review_reason}"` 
+    const reviewReason = example.answer.review_reason
+      ? `"${example.answer.review_reason}"`
       : 'null';
-    
+
     messages.push({
       role: 'assistant',
       content: JSON.stringify({
@@ -269,13 +286,13 @@ Return JSON with: question_id, primary_topic, topic_name, secondary_topic, reaso
       })
     });
   }
-  
+
   // Add actual question
   messages.push({
     role: 'user',
     content: userContent
   });
-  
+
   // 6. GET STRUCTURED RESPONSE
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
@@ -283,13 +300,13 @@ Return JSON with: question_id, primary_topic, topic_name, secondary_topic, reaso
     response_format: { type: 'json_object' },
     temperature: 0
   });
-  
+
   const result = JSON.parse(completion.choices[0].message.content!) as QuestionMapping;
-  
+
   // 7. VALIDATE AND NORMALIZE (Pydantic @model_validator equivalent)
   return validateQuestionMapping(result, questionId, topics);
 }
-  
+
 // ENHANCED: Validate and normalize QuestionMapping (similar to Pydantic @model_validator)
 /**
  * Validates and normalizes a QuestionMapping result
@@ -304,17 +321,17 @@ Return JSON with: question_id, primary_topic, topic_name, secondary_topic, reaso
  * 6. Ensures all review reasons are set correctly
  */
 function validateQuestionMapping(
-  result: QuestionMapping, 
+  result: QuestionMapping,
   questionId: string,
   topics: TopicEntry[]
 ): QuestionMapping {
   // 1. CRITICAL: Ensure question_id matches input (override if AI modified it)
   result.question_id = questionId;
-  
+
   // 2. Get valid codes and topic names
   const validCodes = topics.map(t => t.Code.trim());
   const topicMap = new Map(topics.map(t => [t.Code.trim(), t.Name]));
-  
+
   // 3. Normalize codes
   if (result.primary_topic) {
     result.primary_topic = result.primary_topic.trim();
@@ -322,40 +339,40 @@ function validateQuestionMapping(
   if (result.secondary_topic) {
     result.secondary_topic = result.secondary_topic.trim();
   }
-  
+
   // 4. Ensure topic_name is populated from primary_topic
   if (result.primary_topic && topicMap.has(result.primary_topic)) {
     result.topic_name = topicMap.get(result.primary_topic)!;
   } else if (!result.topic_name) {
     result.topic_name = "";
   }
-  
+
   // 5. Check primary topic validity
   if (result.primary_topic && !validCodes.includes(result.primary_topic)) {
     result.needs_review = true;
     result.review_reason = "invalid_topic_code";
   }
-  
+
   // 6. Check secondary topic validity
   if (result.secondary_topic && !validCodes.includes(result.secondary_topic)) {
     result.needs_review = true;
     result.review_reason = "invalid_topic_code";
   }
-  
+
   // 7. Check for ambiguous language in reason
   const reasonLower = result.reason.toLowerCase();
   const ambiguousPhrases = [
-    "could be", "might be", "possibly", "unclear", 
+    "could be", "might be", "possibly", "unclear",
     "ambiguous", "overlaps with"
   ];
-  
+
   if (ambiguousPhrases.some(phrase => reasonLower.includes(phrase))) {
     result.needs_review = true;
     if (!result.review_reason) {
       result.review_reason = "multiple_overlap";
     }
   }
-  
+
   // 8. Flag if no topic assigned
   if (!result.primary_topic) {
     result.needs_review = true;
@@ -363,7 +380,7 @@ function validateQuestionMapping(
       result.review_reason = "no_topic_assigned";
     }
   }
-  
+
   // 9. AUTO-FLAG if secondary topic exists (Pydantic @model_validator behavior)
   if (result.secondary_topic) {
     result.needs_review = true;
@@ -371,47 +388,66 @@ function validateQuestionMapping(
       result.review_reason = "dual_topic";
     }
   }
-  
+
   return result;
 }
 
 // API Route Handler
+
 export async function POST(req: NextRequest) {
   try {
-    const { questions, topics } = await req.json() as { 
-      questions: Question[], 
-      topics: TopicEntry[] 
+    const { questions, topics } = await req.json() as {
+      questions: Question[],
+      topics: TopicEntry[]
     };
-    
+
     if (!questions || !Array.isArray(questions)) {
       return NextResponse.json(
-        { error: 'Missing or invalid questions array' },
-        { status: 400 }
+        { error: "Missing or invalid questions array" },
+        {
+          status: 400,
+          headers: corsHeaders,
+        }
       );
     }
-    
+
     if (!topics || !Array.isArray(topics)) {
       return NextResponse.json(
-        { error: 'Missing or invalid topics array' },
-        { status: 400 }
+        { error: "Missing or invalid topics array" },
+        {
+          status: 400,
+          headers: corsHeaders,
+        }
       );
     }
-    
-    console.log(`Mapping ${questions.length} questions to topics...`);
-    
-    // Map all questions sequentially (to avoid rate limits)
+
+    console.log(
+      `Mapping ${questions.length} questions to topics...`
+    );
+
     const results: QuestionMapping[] = [];
-    
+
     for (let i = 0; i < questions.length; i++) {
       const question = questions[i];
-      console.log(`Mapping question ${i + 1}/${questions.length}: ${question.question_id}`);
-      
+
+      console.log(
+        `Mapping question ${i + 1}/${questions.length}: ${question.question_id}`
+      );
+
       try {
-        const mapping = await mapQuestion(question, topics);
+        const mapping = await mapQuestion(
+          question,
+          topics
+        );
+
         results.push(mapping);
+
       } catch (error: any) {
-        console.error(`Error mapping question ${question.question_id}:`, error);
-        // Add error result instead of failing entire batch
+        console.error(
+          `Error mapping question ${question.question_id}:`,
+          error
+        );
+
         results.push({
           question_id: question.question_id,
           primary_topic: null,
@@ -419,40 +455,83 @@ export async function POST(req: NextRequest) {
           secondary_topic: null,
           reason: `Mapping failed: ${error.message}`,
           needs_review: true,
-          review_reason: "mapping_error"
+          review_reason: "mapping_error",
         });
       }
     }
-    
-    // Calculate comprehensive stats
+
     const stats = {
       total: results.length,
-      dataManipulation: results.filter(r => r.review_reason === 'calculation_detected').length,
-      dualTopics: results.filter(r => r.secondary_topic !== null).length,
-      needsReview: results.filter(r => r.needs_review).length,
-      cleanMappings: results.filter(r => !r.needs_review && r.primary_topic !== null).length,
-      invalidCodes: results.filter(r => r.review_reason === 'invalid_topic_code').length,
-      multipleOverlap: results.filter(r => r.review_reason === 'multiple_overlap').length,
-      noTopicAssigned: results.filter(r => r.review_reason === 'no_topic_assigned').length,
-      mappingErrors: results.filter(r => r.review_reason === 'mapping_error').length
+      dataManipulation: results.filter(
+        r => r.review_reason ===
+          "calculation_detected"
+      ).length,
+      dualTopics: results.filter(
+        r => r.secondary_topic !== null
+      ).length,
+      needsReview: results.filter(
+        r => r.needs_review
+      ).length,
+      cleanMappings: results.filter(
+        r =>
+          !r.needs_review &&
+          r.primary_topic !== null
+      ).length,
+      invalidCodes: results.filter(
+        r => r.review_reason ===
+          "invalid_topic_code"
+      ).length,
+      multipleOverlap: results.filter(
+        r => r.review_reason ===
+          "multiple_overlap"
+      ).length,
+      noTopicAssigned: results.filter(
+        r => r.review_reason ===
+          "no_topic_assigned"
+      ).length,
+      mappingErrors: results.filter(
+        r => r.review_reason ===
+          "mapping_error"
+      ).length,
     };
-    
-    console.log('Mapping complete:', stats);
-    
-    return NextResponse.json({ 
-      success: true,
-      results, 
-      stats 
-    });
-    
-  } catch (error: any) {
-    console.error('Mapping error:', error);
+
+    console.log(
+      "Mapping complete:",
+      stats
+    );
+
     return NextResponse.json(
-      { 
-        error: error.message || 'Failed to map questions',
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      {
+        success: true,
+        results,
+        stats,
       },
-      { status: 500 }
+      {
+        headers: corsHeaders,
+      }
+    );
+
+  } catch (error: any) {
+    console.error(
+      "Mapping error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error.message ||
+          "Failed to map questions",
+        details:
+          process.env.NODE_ENV ===
+            "development"
+            ? error.stack
+            : undefined,
+      },
+      {
+        status: 500,
+        headers: corsHeaders,
+      }
     );
   }
 }
