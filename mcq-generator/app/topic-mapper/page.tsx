@@ -243,7 +243,7 @@ export default function TopicMapperPage() {
     setMappingError(null);
     
     try {
-      const response = await fetch('/api/map-questions', {
+      const response = await fetch('https://api.pastpaperpal.co.uk/api/map-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questions, topics })
