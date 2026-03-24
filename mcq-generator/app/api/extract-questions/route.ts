@@ -3,6 +3,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { extractText } from 'unpdf';
 
+const ALLOWED_ORIGINS = [
+  'https://quizgenerator.pastpaperpal.co.uk',
+  'http://localhost:3000',
+];
+
+function getCorsHeaders(req?: NextRequest) {
+  const origin = req?.headers.get('origin') ?? '';
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0];
+
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Vary": "Origin",
+  };
+}
+
+export async function OPTIONS(req: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: getCorsHeaders(req),
+  });
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -236,7 +262,10 @@ export async function POST(req: NextRequest) {
     if (!pastPaperFile || !markSchemeFile) {
       return NextResponse.json(
         { error: 'Both past paper and mark scheme PDFs are required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: getCorsHeaders(req),
+        }
       );
     }
 
@@ -244,7 +273,10 @@ export async function POST(req: NextRequest) {
     if (pastPaperFile.type !== 'application/pdf' || markSchemeFile.type !== 'application/pdf') {
       return NextResponse.json(
         { error: 'Both files must be PDFs' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: getCorsHeaders(req),
+        }
       );
     }
 
@@ -253,7 +285,10 @@ export async function POST(req: NextRequest) {
     if (pastPaperFile.size > maxSize || markSchemeFile.size > maxSize) {
       return NextResponse.json(
         { error: 'Files must be smaller than 10MB' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: getCorsHeaders(req),
+        }
       );
     }
 
@@ -272,14 +307,20 @@ export async function POST(req: NextRequest) {
     if (!pastPaperText || pastPaperText.trim().length < 100) {
       return NextResponse.json(
         { error: 'Past paper PDF appears to be empty or unreadable' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: getCorsHeaders(req),
+        }
       );
     }
 
     if (!markSchemeText || markSchemeText.trim().length < 50) {
       return NextResponse.json(
         { error: 'Mark scheme PDF appears to be empty or unreadable' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: getCorsHeaders(req),
+        }
       );
     }
 
@@ -298,6 +339,8 @@ export async function POST(req: NextRequest) {
         extractedAt: new Date().toISOString()
       },
       message: `Successfully extracted ${questions.length} questions`
+    }, {
+      headers: getCorsHeaders(req)
     });
 
   } catch (error: any) {
@@ -307,7 +350,10 @@ export async function POST(req: NextRequest) {
         error: error.message || 'Failed to extract questions',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: getCorsHeaders(req),
+      }
     );
   }
 }
