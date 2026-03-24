@@ -89,6 +89,12 @@ interface QuestionMapping {
   review_reason: string | null;
 }
 
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
+
+function getApiUrl(path: string): string {
+  return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
+}
+
 export default function TopicMapperPage() {
   // Subject selection
   const [subject, setSubject] = useState<SubjectKey | null>(null);
@@ -207,7 +213,7 @@ export default function TopicMapperPage() {
       formData.append('pastPaper', pastPaperFile);
       formData.append('markScheme', markSchemeFile);
       
-      const response = await fetch('/api/extract-questions', {
+      const response = await fetch(getApiUrl('/api/extract-questions'), {
         method: 'POST',
         body: formData
       });
@@ -243,7 +249,7 @@ export default function TopicMapperPage() {
     setMappingError(null);
     
     try {
-      const response = await fetch('https://api.pastpaperpal.co.uk/api/map-questions', {
+      const response = await fetch(getApiUrl('/api/map-questions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questions, topics })

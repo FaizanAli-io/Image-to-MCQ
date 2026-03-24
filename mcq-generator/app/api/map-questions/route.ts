@@ -3,19 +3,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin":
-    "https://quizgenerator.pastpaperpal.co.uk",
-  "Access-Control-Allow-Methods":
-    "POST, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "Content-Type",
-};
+const ALLOWED_ORIGINS = [
+  'https://quizgenerator.pastpaperpal.co.uk',
+  'http://localhost:3000',
+];
 
-export async function OPTIONS() {
+function getCorsHeaders(req?: NextRequest) {
+  const origin = req?.headers.get('origin') ?? '';
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0];
+
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Vary": "Origin",
+  };
+}
+
+export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, {
     status: 200,
-    headers: corsHeaders,
+    headers: getCorsHeaders(req),
   });
 }
 
@@ -406,7 +416,7 @@ export async function POST(req: NextRequest) {
         { error: "Missing or invalid questions array" },
         {
           status: 400,
-          headers: corsHeaders,
+          headers: getCorsHeaders(req),
         }
       );
     }
@@ -416,7 +426,7 @@ export async function POST(req: NextRequest) {
         { error: "Missing or invalid topics array" },
         {
           status: 400,
-          headers: corsHeaders,
+          headers: getCorsHeaders(req),
         }
       );
     }
@@ -507,7 +517,7 @@ export async function POST(req: NextRequest) {
         stats,
       },
       {
-        headers: corsHeaders,
+        headers: getCorsHeaders(req),
       }
     );
 
@@ -530,7 +540,7 @@ export async function POST(req: NextRequest) {
       },
       {
         status: 500,
-        headers: corsHeaders,
+        headers: getCorsHeaders(req),
       }
     );
   }
