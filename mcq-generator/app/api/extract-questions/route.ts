@@ -200,7 +200,7 @@ Extract ALL questions with their complete mark schemes. Return JSON object with 
 
     for (const q of questionsArray) {
       // Validate required fields
-      if (!q.question_id || !q.text || !q.mark_scheme) {
+      if (!q.question_id || !q.text) {
         console.warn('Skipping invalid question:', q);
         continue;
       }
@@ -209,7 +209,7 @@ Extract ALL questions with their complete mark schemes. Return JSON object with 
       const cleanQuestion: ExtractedQuestion = {
         question_id: String(q.question_id).trim(),
         text: String(q.text).trim(),
-        mark_scheme: String(q.mark_scheme).trim()
+        mark_scheme: String(q.mark_scheme ?? '').trim()
       };
 
       // Check for duplicates
@@ -226,14 +226,14 @@ Extract ALL questions with their complete mark schemes. Return JSON object with 
       }
 
       // Additional validation
-      if (cleanQuestion.text.length < 10) {
+      if (cleanQuestion.text.length === 0) {
         console.warn('Question text too short:', cleanQuestion.question_id);
         continue;
       }
 
-      if (cleanQuestion.mark_scheme.length < 3) {
-        console.warn('Mark scheme too short:', cleanQuestion.question_id);
-        continue;
+      // Keep question visible for mapping/manual review even if mark scheme extraction is weak.
+      if (cleanQuestion.mark_scheme.length === 0) {
+        cleanQuestion.mark_scheme = '[Mark scheme not extracted - manual review required]';
       }
 
       seenIds.add(cleanQuestion.question_id);
