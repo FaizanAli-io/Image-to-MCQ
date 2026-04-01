@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 
 export async function POST(req: NextRequest) {
   try {
-    const { excelBuffer, filename, stats } = await req.json();
+    const { excelBuffer, filename, stats, sourcePdfName } = await req.json();
     
     if (!excelBuffer) {
       return NextResponse.json(
@@ -31,14 +31,19 @@ export async function POST(req: NextRequest) {
     
     // Convert base64 buffer back to Buffer
     const buffer = Buffer.from(excelBuffer, 'base64');
+
+    const sourcePdfLine = sourcePdfName
+      ? `Source PDF: ${sourcePdfName}`
+      : 'Source PDF: Not provided';
     
     // Build email body with stats
     const emailBody = `
 Hello,
 
-The Chemistry AI Mapper has completed processing your questions.
+The AI Mapper has completed processing your questions.
 
 Mapping Statistics:
+- ${sourcePdfLine}
 - Total Questions: ${stats.total}
 - Clean Mappings: ${stats.cleanMappings}
 - Data Manipulation Questions: ${stats.dataManipulation}
@@ -48,14 +53,16 @@ Mapping Statistics:
 Please find the complete mapping results in the attached Excel file.
 
 Best regards,
-Chemistry AI Mapper
+AI Mapper
     `.trim();
     
     // Send email
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.EMAIL_TARGET,
-      subject: 'Chemistry AI Mapper - Question Mapping Results',
+      subject: sourcePdfName
+        ? `AI Mapper - ${sourcePdfName}`
+        : 'AI Mapper - Question Mapping Results',
       text: emailBody,
       attachments: [
         {

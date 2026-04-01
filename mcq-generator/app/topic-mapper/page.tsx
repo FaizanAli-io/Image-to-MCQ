@@ -425,6 +425,7 @@ export default function TopicMapperPage() {
         body: JSON.stringify({
           excelBuffer: base64Buffer,
           filename: `mapped_questions_${subject || 'output'}.xlsx`,
+          sourcePdfName: pastPaperFile?.name || null,
           stats: mappingStats
         })
       });
