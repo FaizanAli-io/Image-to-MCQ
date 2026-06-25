@@ -72,6 +72,33 @@ const SUBJECTS = {
 } as const;
 
 type SubjectKey = keyof typeof SUBJECTS;
+type ExamLevel = 'olevel' | 'alevel';
+
+const SUBJECTS_BY_LEVEL: Record<ExamLevel, SubjectKey[]> = {
+  olevel: ['chemistry', 'biology', 'physics'],
+  alevel: ['biology'],
+};
+
+const LEVEL_LABELS: Record<ExamLevel, string> = {
+  olevel: 'O-level',
+  alevel: 'A-level',
+};
+
+const getSubjectCsvFile = (level: ExamLevel, selectedSubject: SubjectKey): string => {
+  if (level === 'alevel' && selectedSubject === 'biology') {
+    return '/data/topics_master_alevel_bio.csv';
+  }
+
+  return SUBJECTS[selectedSubject].csvFile;
+};
+
+const getSubjectSpecLabel = (level: ExamLevel, selectedSubject: SubjectKey): string => {
+  if (level === 'alevel' && selectedSubject === 'biology') {
+    return 'A-level Biology Specification';
+  }
+
+  return SUBJECTS[selectedSubject].specLabel;
+};
 
 interface Question {
   question_id: string;
@@ -97,8 +124,10 @@ function getApiUrl(path: string): string {
 
 export default function TopicMapperPage() {
   // Subject selection
+  const [examLevel, setExamLevel] = useState<ExamLevel>('olevel');
   const [subject, setSubject] = useState<SubjectKey | null>(null);
   const subjectConfig = subject ? SUBJECTS[subject] : null;
+  const availableSubjects = SUBJECTS_BY_LEVEL[examLevel].map((key) => SUBJECTS[key]);
 
   // Step 1: PDF Upload & Extraction
   const [pastPaperFile, setPastPaperFile] = useState<File | null>(null);
@@ -145,13 +174,13 @@ export default function TopicMapperPage() {
     setTopics([]);
   };
 
-  // Load topics when subject changes
+  // Load topics when subject or exam level changes
   useEffect(() => {
     if (!subject) return;
     const loadTopics = async () => {
       setLoadingTopics(true);
       try {
-        const response = await fetch(SUBJECTS[subject].csvFile);
+        const response = await fetch(getSubjectCsvFile(examLevel, subject));
         const text = await response.text();
         const parsed = parseCSV(text);
         setTopics(parsed);
@@ -163,7 +192,7 @@ export default function TopicMapperPage() {
       }
     };
     loadTopics();
-  }, [subject]);
+  }, [examLevel, subject]);
 
   // Parse CSV
   const parseCSV = (text: string): any[] => {
@@ -707,9 +736,26 @@ export default function TopicMapperPage() {
         {!subject && (
           <div className="flex flex-col items-center justify-center min-h-[60vh]">
             <h2 className="text-3xl font-bold text-gray-800 mb-2">Select a Subject</h2>
-            <p className="text-gray-500 mb-10 text-lg">Choose the subject to start mapping past paper questions</p>
-            <div className="grid grid-cols-3 gap-6 w-full max-w-3xl">
-              {(Object.values(SUBJECTS) as typeof SUBJECTS[SubjectKey][]).map((s) => (
+            <p className="text-gray-500 mb-6 text-lg">Choose the level and subject to start mapping past paper questions</p>
+
+            <div className="flex bg-white border border-gray-200 rounded-xl shadow-sm p-1 mb-10">
+              {(['olevel', 'alevel'] as ExamLevel[]).map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setExamLevel(level)}
+                  className={`px-6 py-3 rounded-lg font-bold transition-all ${
+                    examLevel === level
+                      ? 'bg-gray-900 text-white shadow-md'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {LEVEL_LABELS[level]}
+                </button>
+              ))}
+            </div>
+
+            <div className={`grid gap-6 w-full ${availableSubjects.length === 1 ? 'max-w-xs grid-cols-1' : 'max-w-3xl grid-cols-3'}`}>
+              {availableSubjects.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => setSubject(s.id as SubjectKey)}
@@ -720,7 +766,7 @@ export default function TopicMapperPage() {
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-gray-900">{s.name}</p>
-                    <p className="text-sm text-gray-500 mt-1">{s.specLabel}</p>
+                    <p className="text-sm text-gray-500 mt-1">{getSubjectSpecLabel(examLevel, s.id as SubjectKey)}</p>
                   </div>
                   <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${s.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                 </button>
@@ -771,7 +817,7 @@ export default function TopicMapperPage() {
               <Atom className={`w-6 h-6 ${subjectConfig.textColor}`} />
               <div>
                 <h3 className="font-semibold text-gray-900">Topics Database</h3>
-                <p className="text-sm text-gray-600">{subjectConfig.specLabel}</p>
+                <p className="text-sm text-gray-600">{getSubjectSpecLabel(examLevel, subject)}</p>
               </div>
             </div>
             {loadingTopics ? (
