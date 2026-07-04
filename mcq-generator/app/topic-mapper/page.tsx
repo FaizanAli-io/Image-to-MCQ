@@ -122,6 +122,220 @@ function getApiUrl(path: string): string {
   return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
 }
 
+interface ParsedQuestionId {
+  main: number;
+  subLabel: string;
+  depth: number;
+}
+
+function parseQuestionId(questionId: string): ParsedQuestionId {
+  const cleaned = questionId
+    .trim()
+    .replace(/^question\s*/i, '')
+    .replace(/^q/i, '');
+  const mainMatch = cleaned.match(/^(\d+)/);
+  const main = mainMatch ? parseInt(mainMatch[1], 10) : 0;
+  const remainder = mainMatch ? cleaned.slice(mainMatch[1].length).trim() : cleaned;
+  const parts: string[] = [];
+  const firstPart = remainder.split('(')[0].replace(/[^a-z0-9]/gi, '');
+
+  if (firstPart) {
+    parts.push(firstPart.toLowerCase());
+  }
+
+  for (const match of remainder.matchAll(/\(([a-z0-9ivxlcdm]+)\)/gi)) {
+    parts.push(match[1].toLowerCase());
+  }
+
+  return {
+    main,
+    subLabel: parts.length ? `${parts[0]}${parts.slice(1).map(part => `(${part})`).join('')}` : 'whole',
+    depth: parts.length,
+  };
+}
+
+function getQuestionMarks(question?: Question): number {
+  if (!question) return 0;
+
+  const text = `${question.text} ${question.mark_scheme || ''}`;
+  const markMatches = [...text.matchAll(/(?:\[(\d+)\s*marks?\]|\((\d+)\s*marks?\)|\((\d+)\))/gi)];
+  const lastMatch = markMatches[markMatches.length - 1];
+
+  return lastMatch ? parseInt(lastMatch[1] || lastMatch[2] || lastMatch[3], 10) || 0 : 0;
+}
+
+function romanToNumber(value: string): number | null {
+  if (!/^[ivxlcdm]+$/i.test(value)) return null;
+
+  const numerals: Record<string, number> = {
+    i: 1,
+    v: 5,
+    x: 10,
+    l: 50,
+    c: 100,
+    d: 500,
+    m: 1000,
+  };
+  let total = 0;
+  let previous = 0;
+
+  [...value.toLowerCase()].reverse().forEach(char => {
+    const current = numerals[char];
+
+    if (current < previous) {
+      total -= current;
+    } else {
+      total += current;
+      previous = current;
+    }
+  });
+
+  return total;
+}
+
+function compareSubLabels(a: string, b: string): number {
+  if (a === 'whole') return b === 'whole' ? 0 : -1;
+  if (b === 'whole') return 1;
+
+  const tokenize = (label: string) =>
+    [label.split('(')[0], ...[...label.matchAll(/\(([^)]+)\)/g)].map(match => match[1])];
+  const aParts = tokenize(a);
+  const bParts = tokenize(b);
+  const maxLength = Math.max(aParts.length, bParts.length);
+
+  for (let index = 0; index < maxLength; index++) {
+    const aPart = aParts[index] || '';
+    const bPart = bParts[index] || '';
+
+    if (aPart === bPart) continue;
+
+    const numericA = Number(aPart);
+    const numericB = Number(bPart);
+    if (!Number.isNaN(numericA) && !Number.isNaN(numericB)) {
+      return numericA - numericB;
+    }
+
+    const romanA = romanToNumber(aPart);
+    const romanB = romanToNumber(bPart);
+    if (romanA !== null && romanB !== null) {
+      return romanA - romanB;
+    }
+
+    return aPart.localeCompare(bPart, undefined, { numeric: true });
+  }
+
+  return 0;
+}
+
+function buildMappingsWorkbook(mappingResults: QuestionMapping[], questions: Question[]) {
+  const parsedById = new Map(
+    mappingResults.map(result => [result.question_id, parseQuestionId(result.question_id)])
+  );
+  const questionById = new Map(questions.map(question => [question.question_id, question]));
+  const groupedByMain = new Map<number, QuestionMapping[]>();
+  const subLabels = new Set<string>();
+
+  mappingResults.forEach(result => {
+    const parsed = parsedById.get(result.question_id)!;
+
+    if (!groupedByMain.has(parsed.main)) {
+      groupedByMain.set(parsed.main, []);
+    }
+
+    groupedByMain.get(parsed.main)!.push(result);
+    subLabels.add(parsed.subLabel);
+  });
+
+  const sortedSubLabels = [...subLabels].sort(compareSubLabels);
+  const summaryWorksheet = XLSX.utils.aoa_to_sheet([]);
+  const summaryHeaders = [
+    'Question Number',
+    'Linked Questions',
+    'Total Question Marks',
+    ...sortedSubLabels.flatMap(label => [label, `Marks for ${label}`]),
+  ];
+
+  XLSX.utils.sheet_add_aoa(summaryWorksheet, [summaryHeaders], { origin: 'A1' });
+
+  [...groupedByMain.keys()]
+    .sort((a, b) => a - b)
+    .forEach((main, rowIndex) => {
+      const rowData: (string | number)[] = [main, '', 0];
+      const marksBySubLabel = new Map<string, number>();
+      const topicsBySubLabel = new Map<string, string[]>();
+
+      groupedByMain.get(main)!.forEach(result => {
+        const parsed = parsedById.get(result.question_id)!;
+        const marks = getQuestionMarks(questionById.get(result.question_id));
+        const topicText = result.topic_name || result.primary_topic || '';
+
+        marksBySubLabel.set(parsed.subLabel, (marksBySubLabel.get(parsed.subLabel) || 0) + marks);
+
+        if (topicText) {
+          const existingTopics = topicsBySubLabel.get(parsed.subLabel) || [];
+          topicsBySubLabel.set(parsed.subLabel, [...existingTopics, topicText]);
+        }
+      });
+
+      let totalMarks = 0;
+      sortedSubLabels.forEach(label => {
+        const marks = marksBySubLabel.get(label) || 0;
+        totalMarks += marks;
+        rowData.push([...(new Set(topicsBySubLabel.get(label) || []))].join('; '));
+        rowData.push(marks || '');
+      });
+
+      rowData[2] = totalMarks;
+      XLSX.utils.sheet_add_aoa(summaryWorksheet, [rowData], { origin: `A${rowIndex + 2}` });
+    });
+
+  summaryWorksheet['!cols'] = [
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 22 },
+    ...sortedSubLabels.flatMap(() => [{ wch: 35 }, { wch: 16 }]),
+  ];
+
+  const detailRows = mappingResults.map(result => {
+    const parsed = parsedById.get(result.question_id)!;
+
+    return {
+      'Question ID': result.question_id,
+      'Question Number': parsed.main,
+      'Sub-question': parsed.subLabel,
+      'Sub-question Depth': parsed.depth,
+      'Primary Topic': result.primary_topic || '',
+      'Topic Name': result.topic_name || '',
+      'Secondary Topic': result.secondary_topic || '',
+      'Marks': getQuestionMarks(questionById.get(result.question_id)) || '',
+      'Needs Review': result.needs_review ? 'Yes' : 'No',
+      'Review Reason': result.review_reason || '',
+      'Reason': result.reason || '',
+    };
+  });
+
+  const detailsWorksheet = XLSX.utils.json_to_sheet(detailRows);
+  detailsWorksheet['!cols'] = [
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 16 },
+    { wch: 36 },
+    { wch: 16 },
+    { wch: 10 },
+    { wch: 14 },
+    { wch: 20 },
+    { wch: 70 },
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Question Mappings');
+  XLSX.utils.book_append_sheet(workbook, detailsWorksheet, 'Detailed Mappings');
+
+  return workbook;
+}
+
 export default function TopicMapperPage() {
   // Subject selection
   const [examLevel, setExamLevel] = useState<ExamLevel>('olevel');
@@ -304,147 +518,8 @@ export default function TopicMapperPage() {
   // Send email with Excel attachment
   const sendEmailWithExcel = async (mappingResults: QuestionMapping[], mappingStats: any) => {
     try {
-      // ===== USE SAME NEW HORIZONTAL STRUCTURE FOR EMAIL =====
-      
-      // Helper function to parse question_id
-      const parseQuestionId = (questionId: string): { main: number; sub: string } => {
-        const match = questionId.match(/^Q?(\d+)([a-i]?)$/i);
-        if (match) {
-          return {
-            main: parseInt(match[1], 10),
-            sub: match[2]?.toLowerCase() || ''
-          };
-        }
-        return { main: parseInt(questionId.replace(/\D/g, ''), 10) || 0, sub: '' };
-      };
-      
-      // Group results by main question number
-      const groupedByMain: { [key: number]: QuestionMapping[] } = {};
-      
-      mappingResults.forEach(result => {
-        const { main } = parseQuestionId(result.question_id);
-        if (!groupedByMain[main]) {
-          groupedByMain[main] = [];
-        }
-        groupedByMain[main].push(result);
-      });
-      
-      // Build Excel rows
-      const excelRows: any[] = [];
-      
-      // Dynamically determine max sub-question letter from actual data
-      let maxSubLetter = 'a';
-      mappingResults.forEach(result => {
-        const { sub } = parseQuestionId(result.question_id);
-        if (sub && sub > maxSubLetter) {
-          maxSubLetter = sub;
-        }
-      });
-      
-      // Generate sub-letters array up to the max found (e.g., if max is 'j', generate a-j)
-      const subLetters: string[] = [];
-      for (let i = 'a'.charCodeAt(0); i <= maxSubLetter.charCodeAt(0); i++) {
-        subLetters.push(String.fromCharCode(i));
-      }
-      
-      const sortedMainQuestions = Object.keys(groupedByMain)
-        .map(k => parseInt(k, 10))
-        .sort((a, b) => a - b);
-      
-      sortedMainQuestions.forEach(mainNum => {
-        const subQuestions = groupedByMain[mainNum];
-        
-        const row: any = {
-          'Question Number': mainNum,
-          'Linked Questions': '',
-          'Total Question Marks': 0
-        };
-        
-        subLetters.forEach(letter => {
-          row[letter] = '';
-          row[`${letter}_marks`] = '';
-        });
-        
-        let totalMarks = 0;
-        
-        subQuestions.forEach(subQ => {
-          const { sub } = parseQuestionId(subQ.question_id);
-          
-          if (sub && subLetters.includes(sub)) {
-            row[sub] = subQ.topic_name || '';
-            
-            const question = questions.find(q => q.question_id === subQ.question_id);
-            let marks = 0;
-            
-            if (question) {
-              const marksMatch = question.text.match(/\((\d+)\)|\[(\d+)\s*marks?\]/i) ||
-                                question.mark_scheme?.match(/\((\d+)\)|\[(\d+)\s*marks?\]/i);
-              if (marksMatch) {
-                marks = parseInt(marksMatch[1] || marksMatch[2], 10) || 0;
-              }
-            }
-            
-            row[`${sub}_marks`] = marks;
-            totalMarks += marks;
-          }
-        });
-        
-        row['Total Question Marks'] = totalMarks;
-        excelRows.push(row);
-      });
-      
-      // Create worksheet
-      const worksheet = XLSX.utils.aoa_to_sheet([]);
-      
-      const headers = [
-        'Question Number',
-        'Linked Questions',
-        'Total Question Marks'
-      ];
-      
-      subLetters.forEach(letter => {
-        headers.push(letter);
-        headers.push('Marks for sub-question');
-      });
-      
-      XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A1' });
-      
-      excelRows.forEach((row, index) => {
-        const rowData = [
-          row['Question Number'],
-          row['Linked Questions'],
-          row['Total Question Marks']
-        ];
-        
-        subLetters.forEach(letter => {
-          rowData.push(row[letter] || '');
-          rowData.push(row[`${letter}_marks`] || '');
-        });
-        
-        XLSX.utils.sheet_add_aoa(worksheet, [rowData], { origin: `A${index + 2}` });
-      });
-      
-      const colWidths = [
-        { wch: 18 },
-        { wch: 18 },
-        { wch: 22 }
-      ];
-      
-      subLetters.forEach(() => {
-        colWidths.push({ wch: 35 });
-        colWidths.push({ wch: 25 });
-      });
-      
-      worksheet['!cols'] = colWidths;
-      
-      // Create workbook
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Question Mappings');
-      
-      // Generate Excel buffer
+      const workbook = buildMappingsWorkbook(mappingResults, questions);
       const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-      
-      // Convert buffer to base64 for JSON transmission
       const base64Buffer = Buffer.from(excelBuffer).toString('base64');
       
       // Send email via API
@@ -484,188 +559,7 @@ export default function TopicMapperPage() {
 
   // Export mapping results as Excel
   const exportResults = () => {
-    // ===== OLD EXCEL STRUCTURE (COMMENTED FOR SAFE REVERT) =====
-    // const excelData = results.map(r => ({
-    //   'Question ID': r.question_id,
-    //   'Primary Topic': r.primary_topic || '',
-    //   'Topic Name': r.topic_name || '',
-    //   'Secondary Topic': r.secondary_topic || '',
-    //   'Reason': r.reason,
-    //   'Needs Review': r.needs_review ? 'Yes' : 'No',
-    //   'Review Reason': r.review_reason || ''
-    // }));
-    // 
-    // const worksheet = XLSX.utils.json_to_sheet(excelData);
-    // 
-    // worksheet['!cols'] = [
-    //   { wch: 15 },  // Question ID
-    //   { wch: 15 },  // Primary Topic
-    //   { wch: 35 },  // Topic Name
-    //   { wch: 15 },  // Secondary Topic
-    //   { wch: 60 },  // Reason
-    //   { wch: 12 },  // Needs Review
-    //   { wch: 20 }   // Review Reason
-    // ];
-    // ===== END OLD EXCEL STRUCTURE =====
-    
-    // ===== NEW HORIZONTAL EXCEL STRUCTURE IMPLEMENTATION =====
-    
-    // Helper function to parse question_id into main number and sub-letter
-    const parseQuestionId = (questionId: string): { main: number; sub: string } => {
-      // Match patterns like Q1a, Q2b, 1a, 2b, etc.
-      const match = questionId.match(/^Q?(\d+)([a-i]?)$/i);
-      if (match) {
-        return {
-          main: parseInt(match[1], 10),
-          sub: match[2]?.toLowerCase() || ''
-        };
-      }
-      // Fallback: treat entire ID as main question
-      return { main: parseInt(questionId.replace(/\D/g, ''), 10) || 0, sub: '' };
-    };
-    
-    // Group results by main question number
-    const groupedByMain: { [key: number]: QuestionMapping[] } = {};
-    
-    results.forEach(result => {
-      const { main } = parseQuestionId(result.question_id);
-      if (!groupedByMain[main]) {
-        groupedByMain[main] = [];
-      }
-      groupedByMain[main].push(result);
-    });
-    
-    // Build Excel rows
-    const excelRows: any[] = [];
-    
-    // Dynamically determine max sub-question letter from actual data
-    let maxSubLetter = 'a';
-    results.forEach(result => {
-      const { sub } = parseQuestionId(result.question_id);
-      if (sub && sub > maxSubLetter) {
-        maxSubLetter = sub;
-      }
-    });
-    
-    // Generate sub-letters array up to the max found (e.g., if max is 'j', generate a-j)
-    const subLetters: string[] = [];
-    for (let i = 'a'.charCodeAt(0); i <= maxSubLetter.charCodeAt(0); i++) {
-      subLetters.push(String.fromCharCode(i));
-    }
-    
-    // Sort main question numbers
-    const sortedMainQuestions = Object.keys(groupedByMain)
-      .map(k => parseInt(k, 10))
-      .sort((a, b) => a - b);
-    
-    sortedMainQuestions.forEach(mainNum => {
-      const subQuestions = groupedByMain[mainNum];
-      
-      // Create row object
-      const row: any = {
-        'Question Number': mainNum,
-        'Linked Questions': '', // Leave blank as per requirements
-        'Total Question Marks': 0
-      };
-      
-      // Initialize all sub-question columns
-      subLetters.forEach(letter => {
-        row[letter] = '';
-        row[`${letter}_marks`] = '';
-      });
-      
-      // Fill in sub-question data
-      let totalMarks = 0;
-      
-      subQuestions.forEach(subQ => {
-        const { sub } = parseQuestionId(subQ.question_id);
-        
-        if (sub && subLetters.includes(sub)) {
-          // Set topic name in the sub-letter column
-          row[sub] = subQ.topic_name || '';
-          
-          // Extract marks from question text or mark_scheme
-          // Look for patterns like (2), [3 marks], (4 marks), etc.
-          const question = questions.find(q => q.question_id === subQ.question_id);
-          let marks = 0;
-          
-          if (question) {
-            const marksMatch = question.text.match(/\((\d+)\)|\[(\d+)\s*marks?\]/i) ||
-                              question.mark_scheme?.match(/\((\d+)\)|\[(\d+)\s*marks?\]/i);
-            if (marksMatch) {
-              marks = parseInt(marksMatch[1] || marksMatch[2], 10) || 0;
-            }
-          }
-          
-          // Set marks in the column after the sub-letter column
-          // We'll handle this by creating unique column names
-          row[`${sub}_marks`] = marks;
-          totalMarks += marks;
-        }
-      });
-      
-      row['Total Question Marks'] = totalMarks;
-      excelRows.push(row);
-    });
-    
-    // Create worksheet with proper column structure
-    const worksheet = XLSX.utils.aoa_to_sheet([]);
-    
-    // Build header row
-    const headers = [
-      'Question Number',
-      'Linked Questions',
-      'Total Question Marks'
-    ];
-    
-    // Add sub-question columns (a, Marks for sub-question, b, Marks for sub-question, ...)
-    subLetters.forEach(letter => {
-      headers.push(letter);
-      headers.push('Marks for sub-question');
-    });
-    
-    // Add headers to worksheet
-    XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A1' });
-    
-    // Add data rows
-    excelRows.forEach((row, index) => {
-      const rowData = [
-        row['Question Number'],
-        row['Linked Questions'],
-        row['Total Question Marks']
-      ];
-      
-      // Add sub-question data
-      subLetters.forEach(letter => {
-        rowData.push(row[letter] || '');
-        rowData.push(row[`${letter}_marks`] || '');
-      });
-      
-      XLSX.utils.sheet_add_aoa(worksheet, [rowData], { origin: `A${index + 2}` });
-    });
-    
-    // Set column widths
-    const colWidths = [
-      { wch: 18 },  // Question Number
-      { wch: 18 },  // Linked Questions
-      { wch: 22 }   // Total Question Marks
-    ];
-    
-    // Add widths for sub-question columns
-    subLetters.forEach(() => {
-      colWidths.push({ wch: 35 });  // Topic name column
-      colWidths.push({ wch: 25 });  // Marks column
-    });
-    
-    worksheet['!cols'] = colWidths;
-    
-    // ===== END NEW HORIZONTAL EXCEL STRUCTURE =====
-    
-    // Create workbook
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Question Mappings');
-    
-    // Generate Excel file and trigger download
+    const workbook = buildMappingsWorkbook(results, questions);
     XLSX.writeFile(workbook, `mapped_questions_${subject || 'output'}.xlsx`);
   };
 
