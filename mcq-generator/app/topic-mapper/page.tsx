@@ -154,14 +154,33 @@ function parseQuestionId(questionId: string): ParsedQuestionId {
   };
 }
 
-function getQuestionMarks(question?: Question): number {
-  if (!question) return 0;
+function getQuestionMarks(question?: Question): number | null {
+  if (!question) return null;
 
-  const text = `${question.text} ${question.mark_scheme || ''}`;
-  const markMatches = [...text.matchAll(/(?:\[(\d+)\s*marks?\]|\((\d+)\s*marks?\)|\((\d+)\))/gi)];
-  const lastMatch = markMatches[markMatches.length - 1];
+  const text = question.text.trim();
+  const explicitMarkMatches = [
+    ...text.matchAll(/(?:\[(\d+)\s*marks?\]|\((\d+)\s*marks?\))/gi),
+  ];
 
-  return lastMatch ? parseInt(lastMatch[1] || lastMatch[2] || lastMatch[3], 10) || 0 : 0;
+  if (explicitMarkMatches.length) {
+    const lastMatch = explicitMarkMatches[explicitMarkMatches.length - 1];
+    return parseInt(lastMatch[1] || lastMatch[2], 10) || null;
+  }
+
+  const lines = text
+    .split(/\r?\n|(?<=\.)\s+(?=[\[(]\d+[\])]\s*$)/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  for (const line of [...lines].reverse()) {
+    const endMarkMatch = line.match(/(?:\[(\d+)\]|\((\d+)\))\s*$/);
+
+    if (endMarkMatch) {
+      return parseInt(endMarkMatch[1] || endMarkMatch[2], 10) || null;
+    }
+  }
+
+  return null;
 }
 
 function romanToNumber(value: string): number | null {
@@ -233,7 +252,6 @@ function buildMappingsWorkbook(mappingResults: QuestionMapping[], questions: Que
   );
   const questionById = new Map(questions.map(question => [question.question_id, question]));
   const groupedByMain = new Map<number, QuestionMapping[]>();
-  const subLabels = new Set<string>();
 
   mappingResults.forEach(result => {
     const parsed = parsedById.get(result.question_id)!;
@@ -243,57 +261,71 @@ function buildMappingsWorkbook(mappingResults: QuestionMapping[], questions: Que
     }
 
     groupedByMain.get(parsed.main)!.push(result);
-    subLabels.add(parsed.subLabel);
   });
 
-  const sortedSubLabels = [...subLabels].sort(compareSubLabels);
+  const sortedMainQuestions = [...groupedByMain.keys()].sort((a, b) => a - b);
+  const maxSubPartCount = sortedMainQuestions.reduce((maxCount, main) => {
+    const subPartCount = groupedByMain
+      .get(main)!
+      .filter(result => parsedById.get(result.question_id)!.subLabel !== 'whole')
+      .length;
+
+    return Math.max(maxCount, subPartCount);
+  }, 0);
   const summaryWorksheet = XLSX.utils.aoa_to_sheet([]);
   const summaryHeaders = [
     'Question Number',
-    'Linked Questions',
     'Total Question Marks',
-    ...sortedSubLabels.flatMap(label => [label, `Marks for ${label}`]),
+    'whole',
+    'Marks',
+    ...Array.from({ length: maxSubPartCount }).flatMap(() => ['', 'Marks']),
   ];
 
   XLSX.utils.sheet_add_aoa(summaryWorksheet, [summaryHeaders], { origin: 'A1' });
 
-  [...groupedByMain.keys()]
-    .sort((a, b) => a - b)
-    .forEach((main, rowIndex) => {
-      const rowData: (string | number)[] = [main, '', 0];
-      const marksBySubLabel = new Map<string, number>();
-      const topicsBySubLabel = new Map<string, string[]>();
+  sortedMainQuestions.forEach((main, rowIndex) => {
+    const entries = groupedByMain.get(main)!;
+    const wholeEntries = entries.filter(result => parsedById.get(result.question_id)!.subLabel === 'whole');
+    const subPartEntries = entries
+      .filter(result => parsedById.get(result.question_id)!.subLabel !== 'whole')
+      .sort((a, b) =>
+        compareSubLabels(
+          parsedById.get(a.question_id)!.subLabel,
+          parsedById.get(b.question_id)!.subLabel
+        )
+      );
+    const orderedEntries = [...wholeEntries, ...subPartEntries];
+    const marks = orderedEntries.map(result => getQuestionMarks(questionById.get(result.question_id)));
+    const knownTotalMarks = marks.reduce((total, mark) => total + (mark || 0), 0);
+    const totalMarks: string | number = marks.some(mark => mark === null) ? '?' : knownTotalMarks;
+    const wholeTopic = [...new Set(wholeEntries.map(result => result.topic_name || result.primary_topic || '').filter(Boolean))].join('; ');
+    const wholeMarks = wholeEntries.length
+      ? marks.slice(0, wholeEntries.length).some(mark => mark === null)
+        ? '?'
+        : marks.slice(0, wholeEntries.length).reduce((total, mark) => total + (mark || 0), 0)
+      : '';
+    const rowData: (string | number)[] = [main, totalMarks, wholeTopic, wholeMarks];
 
-      groupedByMain.get(main)!.forEach(result => {
-        const parsed = parsedById.get(result.question_id)!;
-        const marks = getQuestionMarks(questionById.get(result.question_id));
-        const topicText = result.topic_name || result.primary_topic || '';
+    subPartEntries.forEach(result => {
+      const mark = getQuestionMarks(questionById.get(result.question_id));
 
-        marksBySubLabel.set(parsed.subLabel, (marksBySubLabel.get(parsed.subLabel) || 0) + marks);
+      rowData.push(result.topic_name || result.primary_topic || '');
+      rowData.push(mark === null ? '?' : mark);
+    });
 
-        if (topicText) {
-          const existingTopics = topicsBySubLabel.get(parsed.subLabel) || [];
-          topicsBySubLabel.set(parsed.subLabel, [...existingTopics, topicText]);
-        }
-      });
+    while (rowData.length < summaryHeaders.length) {
+      rowData.push('');
+    }
 
-      let totalMarks = 0;
-      sortedSubLabels.forEach(label => {
-        const marks = marksBySubLabel.get(label) || 0;
-        totalMarks += marks;
-        rowData.push([...(new Set(topicsBySubLabel.get(label) || []))].join('; '));
-        rowData.push(marks || '');
-      });
-
-      rowData[2] = totalMarks;
-      XLSX.utils.sheet_add_aoa(summaryWorksheet, [rowData], { origin: `A${rowIndex + 2}` });
+    XLSX.utils.sheet_add_aoa(summaryWorksheet, [rowData], { origin: `A${rowIndex + 2}` });
     });
 
   summaryWorksheet['!cols'] = [
     { wch: 18 },
-    { wch: 18 },
-    { wch: 22 },
-    ...sortedSubLabels.flatMap(() => [{ wch: 35 }, { wch: 16 }]),
+    { wch: 24 },
+    { wch: 35 },
+    { wch: 12 },
+    ...Array.from({ length: maxSubPartCount }).flatMap(() => [{ wch: 35 }, { wch: 12 }]),
   ];
 
   const detailRows = mappingResults.map(result => {
@@ -307,7 +339,7 @@ function buildMappingsWorkbook(mappingResults: QuestionMapping[], questions: Que
       'Primary Topic': result.primary_topic || '',
       'Topic Name': result.topic_name || '',
       'Secondary Topic': result.secondary_topic || '',
-      'Marks': getQuestionMarks(questionById.get(result.question_id)) || '',
+      'Marks': getQuestionMarks(questionById.get(result.question_id)) ?? '?',
       'Needs Review': result.needs_review ? 'Yes' : 'No',
       'Review Reason': result.review_reason || '',
       'Reason': result.reason || '',
