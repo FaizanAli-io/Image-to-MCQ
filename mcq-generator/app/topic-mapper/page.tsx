@@ -296,13 +296,13 @@ function buildMappingsWorkbook(mappingResults: QuestionMapping[], questions: Que
       );
     const orderedEntries = [...wholeEntries, ...subPartEntries];
     const marks = orderedEntries.map(result => getQuestionMarks(questionById.get(result.question_id)));
-    const knownTotalMarks = marks.reduce((total, mark) => total + (mark || 0), 0);
+    const knownTotalMarks = marks.reduce<number>((total, mark) => total + (mark ?? 0), 0);
     const totalMarks: string | number = marks.some(mark => mark === null) ? '?' : knownTotalMarks;
     const wholeTopic = [...new Set(wholeEntries.map(result => result.topic_name || result.primary_topic || '').filter(Boolean))].join('; ');
     const wholeMarks = wholeEntries.length
       ? marks.slice(0, wholeEntries.length).some(mark => mark === null)
         ? '?'
-        : marks.slice(0, wholeEntries.length).reduce((total, mark) => total + (mark || 0), 0)
+        : marks.slice(0, wholeEntries.length).reduce<number>((total, mark) => total + (mark ?? 0), 0)
       : '';
     const rowData: (string | number)[] = [main, totalMarks, wholeTopic, wholeMarks];
 
