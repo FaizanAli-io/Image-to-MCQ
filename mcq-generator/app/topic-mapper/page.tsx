@@ -80,7 +80,7 @@ const SUBJECTS_BY_LEVEL: Record<ExamLevel, SubjectKey[]> = {
 };
 
 const LEVEL_LABELS: Record<ExamLevel, string> = {
-  olevel: 'O-level',
+  olevel: 'GCSE',
   alevel: 'A-level',
 };
 
