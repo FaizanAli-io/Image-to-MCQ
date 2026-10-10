@@ -1,6 +1,7 @@
 'use client';
 
 import { GeneratedQuestion } from '@/lib/types';
+import QuizStimulus from './QuizStimulus';
 
 interface QuestionDisplayProps {
   questions: GeneratedQuestion[];
@@ -37,7 +38,13 @@ export default function QuestionDisplay({ questions }: QuestionDisplayProps) {
           </div>
           
           <div className="p-6">
-            <p className="text-gray-800 leading-relaxed mb-4 text-base">{question.text}</p>
+            {question.stimuli?.map(stimulus => {
+              const firstIndex = questions.findIndex(q => q.stimuli?.some(s => s.id === stimulus.id));
+              return firstIndex === index
+                ? <div key={stimulus.id} id={`stimulus-${stimulus.id}`} className="scroll-mt-24"><QuizStimulus stimulus={stimulus} /></div>
+                : <p key={stimulus.id} className="mb-3 text-sm text-gray-700">Use <a href={`#stimulus-${stimulus.id}`} className="text-indigo-700 underline">{stimulus.title}</a> shown with Question {firstIndex + 1}.</p>;
+            })}
+            <p className="text-gray-800 leading-relaxed mb-4 text-base whitespace-pre-line">{question.text}</p>
             
             {question.type === "MULTIPLE_CHOICE" && question.options && (
               <div className="space-y-2.5">

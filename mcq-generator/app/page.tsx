@@ -20,24 +20,27 @@ export default function Home() {
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
 
-  const isMultipleImages = config.quizType === 'retrieval';
+  const isRetrieval = config.quizType === 'retrieval';
+  const needsAO3Review = questions.some(q => q.reviewStatus === 'recommended' || q.reviewStatus === 'unavailable');
 
   const handleGenerate = async () => {
+    setErrorCode('');
     if (!uploadedFiles) {
-      setError(isMultipleImages ? 'Please upload 3 images (one for each topic)' : 'Please upload 1 image');
+      setError(isRetrieval ? 'Please upload 3 images (one for each topic)' : 'Please upload 1 or 2 pages for one mini quiz');
       return;
     }
 
     const filesArray = Array.isArray(uploadedFiles) ? uploadedFiles : [uploadedFiles];
     
-    if (isMultipleImages && filesArray.length !== 3) {
+    if (isRetrieval && filesArray.length !== 3) {
       setError('Retrieval Quiz requires exactly 3 images (Topic A, B, C)');
       return;
     }
 
-    if (!isMultipleImages && filesArray.length !== 1) {
-      setError('Mini Quiz requires exactly 1 image');
+    if (!isRetrieval && (filesArray.length < 1 || filesArray.length > 2)) {
+      setError('Mini Quiz requires 1 or 2 pages for the same quiz');
       return;
     }
 
@@ -67,9 +70,9 @@ export default function Home() {
         const data = await response.json();
         setQuestions(data.questions);
       } else if (config.quizType === 'mini') {
-        // Use Mini Quiz workflow (1 image)
+        // Use both pages together in one Mini Quiz request
         const formData = new FormData();
-        formData.append('image', filesArray[0]);
+        filesArray.forEach((file) => formData.append('images', file));
         formData.append('educationLevel', config.educationLevel);
 
         const response = await fetch('/api/generate-mini-quiz', {
@@ -79,6 +82,7 @@ export default function Home() {
 
         if (!response.ok) {
           const errorData = await response.json();
+          setErrorCode(errorData.code || '');
           throw new Error(errorData.error || 'Failed to generate mini quiz');
         }
 
@@ -94,7 +98,7 @@ export default function Home() {
 
   const handleDownloadPDF = () => {
     const pdf = generatePDF(questions, `${config.educationLevel} ${config.quizType} Quiz`);
-    pdf.save('quiz.pdf');
+    pdf.save(needsAO3Review ? 'quiz-draft.pdf' : 'quiz.pdf');
   };
 
   const handleDownloadAnswerKey = () => {
@@ -171,11 +175,13 @@ export default function Home() {
               </h2>
               <ImageUploader 
                 onImageUpload={setUploadedFiles} 
-                multipleImages={isMultipleImages}
-                maxImages={isMultipleImages ? 3 : 1}
+                key={config.quizType}
+                multipleImages
+                imageLabels={isRetrieval ? 'topics' : 'pages'}
+                maxImages={isRetrieval ? 3 : 2}
               />
             </div>
-            {isMultipleImages && (
+            {isRetrieval && (
               <div className="bg-blue-600 rounded-xl shadow-md p-5 text-white">
                 <div className="flex items-start gap-3">
                   <span className="text-2xl flex-shrink-0">💡</span>
@@ -190,14 +196,14 @@ export default function Home() {
                 </div>
               </div>
             )}
-            {!isMultipleImages && (
+            {!isRetrieval && (
               <div className="bg-purple-600 rounded-xl shadow-md p-5 text-white">
                 <div className="flex items-start gap-3">
                   <span className="text-2xl flex-shrink-0">📝</span>
                   <div>
                     <p className="font-bold mb-2">Mini Quiz Requirements:</p>
                     <div className="space-y-1 text-sm opacity-95">
-                      <p>• Upload <strong>1 image</strong> of your study material</p>
+                      <p>• Upload <strong>1 or 2 pages</strong> of your study material for one quiz</p>
                       <p>• Complete questions to practice revised content</p>
                       <p>• Self mark to assess how effective your revision was</p>
                     </div>
@@ -214,7 +220,14 @@ export default function Home() {
                 <span className="text-blue-600">⚙️</span>
                 Quiz Configuration
               </h3>
-              <QuestionTypeSelector config={config} onChange={setConfig} />
+              <QuestionTypeSelector config={config} onChange={(nextConfig) => {
+                if (nextConfig.quizType !== config.quizType) {
+                  setUploadedFiles(null);
+                  setQuestions([]);
+                  setError('');
+                }
+                setConfig(nextConfig);
+              }} />
             </div>
             
             <button
@@ -247,7 +260,9 @@ export default function Home() {
               <div className="flex-1">
                 <h3 className="font-bold text-red-900 mb-1">Something Went Wrong</h3>
                 <p className="text-red-700 text-sm mb-3">{error}</p>
-                <p className="text-xs text-red-600">Common issues: Image quality too low • Text not readable • API quota exceeded</p>
+                <p className="text-xs text-red-600">{errorCode === 'INVALID_AO3_EVIDENCE'
+                  ? 'The generated AO3 evidence could not be validated after an automatic repair. Try generating again using the same pages.'
+                  : 'Check the message above and try again. If the problem continues, share the error with support.'}</p>
               </div>
             </div>
           </div>
@@ -258,13 +273,19 @@ export default function Home() {
           <div className="mt-8 bg-white rounded-xl shadow-xl p-12 border border-gray-200 text-center fade-in">
             <LoadingSpinner />
             <p className="mt-4 text-gray-700 font-medium">Analyzing your content with AI...</p>
-            <p className="mt-2 text-sm text-gray-500">⏱️ This usually takes 10-15 seconds</p>
+            <p className="mt-2 text-sm text-gray-500">{config.quizType === 'mini' ? 'Preparing your questions, evidence and mark scheme...' : '⏱️ This usually takes 10-15 seconds'}</p>
           </div>
         )}
 
         {/* Results */}
         {questions.length > 0 && !loading && (
           <div className="mt-8 fade-in">
+            {needsAO3Review && (
+              <div role="status" className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-amber-950">
+                <p className="font-semibold">Draft quiz — AO3 review recommended</p>
+                <p className="mt-1 text-sm">The stimulus data passed validation. Check the AO3 questions and answers before using this quiz; the automatic quality review flagged concerns or could not finish.</p>
+              </div>
+            )}
             {/* Results Header Bar */}
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 mb-6 shadow-sm">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -276,7 +297,7 @@ export default function Home() {
                     <h2 className="text-xl font-bold text-gray-900">
                       {questions.length} Questions Generated Successfully
                     </h2>
-                    <p className="text-sm text-gray-600">Your quiz is ready to download</p>
+                    <p className="text-sm text-gray-600">{needsAO3Review ? 'Your draft quiz is ready to review and download' : 'Your quiz is ready to download'}</p>
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -285,7 +306,7 @@ export default function Home() {
                     className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-all duration-150 shadow-md hover:shadow-lg hover:-translate-y-0.5"
                   >
                     <Download className="w-4 h-4" />
-                    Download Quiz PDF
+                    {needsAO3Review ? 'Download Draft Quiz PDF' : 'Download Quiz PDF'}
                   </button>
                   {config.quizType === 'retrieval' && (
                     <button

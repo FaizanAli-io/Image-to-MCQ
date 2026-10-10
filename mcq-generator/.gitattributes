@@ -1,0 +1,2 @@
+# Preserve the exact client attachment, including its original CRLF line endings.
+docs/mini-quiz/client-prompts.txt -text

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAndShuffleRetrievalQuiz } from '@/lib/openai';
+import { RetrievalQuizValidationError } from '@/lib/retrieval-quiz-errors';
 import { uploadToR2, deleteFromR2, getSignedR2Url } from '@/lib/r2-client';
 
 export const runtime = 'nodejs';
+// Three generation calls run concurrently, each with a 45-second timeout.
+export const maxDuration = 90;
 
 export async function POST(request: NextRequest) {
   const uploadedKeys: string[] = [];
@@ -22,6 +25,13 @@ export async function POST(request: NextRequest) {
         { error: 'Exactly 3 images are required for retrieval quiz' },
         { status: 400 }
       );
+    }
+
+    if (educationLevel !== 'GCSE' && educationLevel !== 'A-LEVEL') {
+      return NextResponse.json({ error: 'Invalid education level' }, { status: 400 });
+    }
+    if (files.some(file => !(file instanceof File) || !file.type.startsWith('image/') || file.size === 0 || file.size > 10 * 1024 * 1024)) {
+      return NextResponse.json({ error: 'Each source must be a non-empty image up to 10MB' }, { status: 400 });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -62,15 +72,16 @@ export async function POST(request: NextRequest) {
       return signedUrl;
     });
     
-    const imageUrls = await Promise.all(uploadPromises);
+    // Finish all uploads before error cleanup, including those still in flight.
+    const uploads = await Promise.allSettled(uploadPromises);
+    const imageUrls = uploads.map(result => {
+      if (result.status === 'rejected') throw result.reason;
+      return result.value;
+    });
     console.log(`🎉 Successfully uploaded ${imageUrls.length} images to R2`);
 
     // Step 2: Generate quiz using R2 URLs
     console.log("🤖 Step 2: Generating quiz with AI...");
-    console.log("🔗 Using signed URLs:");
-    imageUrls.forEach((url, index) => {
-      console.log(`   Image ${index + 1}: ${url.substring(0, 100)}...`);
-    });
     
     const result = await generateAndShuffleRetrievalQuiz(
       apiKey,
@@ -122,9 +133,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         error: error instanceof Error ? error.message : 'Failed to generate quiz',
-        success: false 
+        success: false,
+        ...(error instanceof RetrievalQuizValidationError ? { code: 'RETRIEVAL_VALIDATION_FAILED' } : {})
       },
-      { status: 500 }
+      { status: error instanceof RetrievalQuizValidationError ? 422 : 500 }
     );
   }
 }

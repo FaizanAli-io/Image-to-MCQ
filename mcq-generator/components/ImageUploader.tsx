@@ -12,9 +12,10 @@ interface ImageUploaderProps {
   onImageUpload: (files: File[] | File) => void;
   multipleImages?: boolean;
   maxImages?: number;
+  imageLabels?: 'topics' | 'pages';
 }
 
-export default function ImageUploader({ onImageUpload, multipleImages = false, maxImages = 3 }: ImageUploaderProps) {
+export default function ImageUploader({ onImageUpload, multipleImages = false, maxImages = 3, imageLabels = 'topics' }: ImageUploaderProps) {
   const [previews, setPreviews] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -219,10 +220,10 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
             {multipleImages && !isProcessing && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 max-w-md">
                 <p className="text-xs text-blue-800 font-medium">
-                  📚 Retrieval Quiz requires 3 images:
+                  {imageLabels === 'topics' ? 'Retrieval Quiz requires 3 images:' : 'Mini Quiz accepts 1 or 2 pages:'}
                 </p>
                 <p className="text-xs text-blue-700 mt-1">
-                  Topic A • Topic B • Topic C
+                  {imageLabels === 'topics' ? 'Topic A / Topic B / Topic C' : 'Both pages are used together for one quiz'}
                 </p>
               </div>
             )}
@@ -268,8 +269,8 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <p className="text-xs text-amber-800 font-medium flex items-center gap-2">
                 <span>💡</span>
-                <span className="hidden sm:inline">Use the ↑↓ arrows to reorder topics if needed</span>
-                <span className="sm:hidden">Tap the ↑↓ arrows on images to reorder topics</span>
+                <span className="hidden sm:inline">Use the ↑↓ arrows to reorder {imageLabels} if needed</span>
+                <span className="sm:hidden">Tap the ↑↓ arrows on images to reorder {imageLabels}</span>
               </p>
             </div>
           )}
@@ -278,7 +279,7 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
               <div key={index} className="group relative bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden border border-gray-200">
                 {multipleImages && (
                   <div className="absolute top-3 left-3 bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-bold z-10 shadow-lg">
-                    Topic {String.fromCharCode(65 + index)}
+                    {imageLabels === 'topics' ? `Topic ${String.fromCharCode(65 + index)}` : `Page ${index + 1}`}
                   </div>
                 )}
                 <div className="h-32 overflow-hidden bg-gray-100">

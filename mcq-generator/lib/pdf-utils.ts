@@ -1,5 +1,7 @@
 import jsPDF from 'jspdf';
 import { GeneratedQuestion } from './types';
+import { layoutStimulus } from './stimulus-layout';
+import { drawStimulusPanel } from './stimulus-pdf';
 
 /**
  * Enhanced text rendering with superscripts, subscripts, and symbols
@@ -250,162 +252,40 @@ function preprocessScientificText(text: string): string {
   return processed;
 }
 
-/**
- * Render text with italic formatting support
- * Detects text between asterisks (*text*) and renders it in italics
- * Handles line wrapping while preserving italic formatting
- */
-function renderTextWithItalics(
-  doc: jsPDF,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  fontSize: number = 11
-): { height: number; lines: number } {
-  const lineHeight = fontSize * 0.8;
-  doc.setFontSize(fontSize);
-  
-  // Parse the text into segments with formatting info
-  const segments = parseTextSegments(text);
-  
-  // Wrap text while preserving formatting
-  const wrappedLines = wrapTextWithFormatting(doc, segments, maxWidth);
-  
-  // Render each line
-  let currentY = y;
-  wrappedLines.forEach(line => {
-    renderFormattedLine(doc, line, x, currentY, fontSize);
-    currentY += lineHeight;
-  });
-  
-  return {
-    height: wrappedLines.length * lineHeight,
-    lines: wrappedLines.length
-  };
-}
-
-/**
- * Parse text into segments with formatting information
- * Automatically adds bold "Explanation:" label before italic text
- */
-function parseTextSegments(text: string): Array<{ text: string; isItalic: boolean; isBold: boolean }> {
-  const segments: Array<{ text: string; isItalic: boolean; isBold: boolean }> = [];
-  const parts = text.split(/(\*[^*]*\*)/);
-  
-  parts.forEach(part => {
-    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
-      // This is italic text - remove asterisks and add bold "Explanation:" label
-      const italicText = part.slice(1, -1);
-      
-      // Check if it already starts with "Explanation:" to avoid duplication
-      if (!italicText.toLowerCase().startsWith('explanation:')) {
-        // Add bold "Explanation:" label followed by italic explanation text
-        segments.push({ text: 'Explanation:', isItalic: false, isBold: true });
-        segments.push({ text: ' ' + italicText, isItalic: true, isBold: false });
-      } else {
-        // If it already has "Explanation:", make just that part bold
-        if (italicText.toLowerCase().startsWith('explanation:')) {
-          segments.push({ text: 'Explanation:', isItalic: false, isBold: true });
-          segments.push({ text: italicText.substring(12), isItalic: true, isBold: false }); // Remove "Explanation:" and add rest as italic
-        } else {
-          segments.push({ text: italicText, isItalic: true, isBold: false });
-        }
-      }
-    } else if (part) {
-      // This is normal text
-      segments.push({ text: part, isItalic: false, isBold: false });
+// Retrieval uses the same word wrapping as renderFormattedText, but measures
+// complete question blocks and checks page space before drawing every line.
+function retrievalLines(doc: jsPDF, text: string, width: number): string[] {
+  // Helvetica supports the micro sign, but not Greek mu or the Unicode minus.
+  text = text.replace(/μ/g, 'µ').replace(/−/g, '-');
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  const lines: string[] = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    const next = line + (line ? ' ' : '') + word;
+    if (line && doc.getTextWidth(next) > width) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
     }
-  });
-  
-  return segments;
-}
-
-/**
- * Wrap text segments while preserving formatting
- */
-function wrapTextWithFormatting(
-  doc: jsPDF,
-  segments: Array<{ text: string; isItalic: boolean; isBold: boolean }>,
-  maxWidth: number
-): Array<Array<{ text: string; isItalic: boolean; isBold: boolean }>> {
-  const lines: Array<Array<{ text: string; isItalic: boolean; isBold: boolean }>> = [];
-  let currentLine: Array<{ text: string; isItalic: boolean; isBold: boolean }> = [];
-  let currentLineWidth = 0;
-  
-  segments.forEach(segment => {
-    const words = segment.text.split(' ');
-    
-    words.forEach((word, wordIndex) => {
-      if (wordIndex > 0) word = ' ' + word; // Add space back except for first word
-      
-      // Set font style to measure width correctly
-      const fontStyle = segment.isBold ? "bold" : (segment.isItalic ? "italic" : "normal");
-      doc.setFont("helvetica", fontStyle);
-      const wordWidth = doc.getTextWidth(word);
-      
-      // Check if adding this word would exceed line width
-      if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
-        // Start new line
-        lines.push([...currentLine]);
-        currentLine = [{ text: word.trim(), isItalic: segment.isItalic, isBold: segment.isBold }];
-        currentLineWidth = doc.getTextWidth(word.trim());
-      } else {
-        // Add to current line
-        if (currentLine.length > 0 && 
-            currentLine[currentLine.length - 1].isItalic === segment.isItalic &&
-            currentLine[currentLine.length - 1].isBold === segment.isBold) {
-          // Merge with previous segment if same formatting
-          currentLine[currentLine.length - 1].text += word;
-        } else {
-          // Add as new segment
-          currentLine.push({ text: word.trim(), isItalic: segment.isItalic, isBold: segment.isBold });
-        }
-        currentLineWidth += wordWidth;
-      }
-    });
-  });
-  
-  // Add the last line if it has content
-  if (currentLine.length > 0) {
-    lines.push(currentLine);
   }
-  
+  if (line) lines.push(line);
   return lines;
 }
 
-/**
- * Render a line with mixed formatting (bold, italic, normal)
- */
-function renderFormattedLine(
-  doc: jsPDF,
-  segments: Array<{ text: string; isItalic: boolean; isBold: boolean }>,
-  x: number,
-  y: number,
-  fontSize: number
-) {
-  let currentX = x;
-  doc.setFontSize(fontSize);
-  
-  segments.forEach((segment, index) => {
-    // Add space before segment (except first)
-    if (index > 0) {
-      currentX += doc.getTextWidth(' ');
+function drawRetrievalLines(doc: jsPDF, lines: string[], x: number, y: number, margin: number): number {
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  for (const line of lines) {
+    if (y > doc.internal.pageSize.getHeight() - margin - 3) {
+      doc.addPage();
+      y = margin;
     }
-    
-    // Set appropriate font style
-    const fontStyle = segment.isBold ? "bold" : (segment.isItalic ? "italic" : "normal");
-    doc.setFont("helvetica", fontStyle);
-    
-    // Render the text
-    doc.text(segment.text, currentX, y);
-    
-    // Update position
-    currentX += doc.getTextWidth(segment.text);
-  });
-  
-  // Reset to normal font
-  doc.setFont("helvetica", "normal");
+    renderLineWithFormatting(doc, line, x, y, 11, 11 * 0.7);
+    y += 11 * 0.8;
+  }
+  return y;
 }
 
 export function generatePDF(questions: GeneratedQuestion[], title: string = "Generated Quiz"): jsPDF {
@@ -423,31 +303,21 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
     // Mini Quiz Format
     const topicName = questions[0]?.topic || "Mini Quiz";
     
-    // Determine education level and question counts from the questions array
-    const totalQuestions = questions.length;
-    let ao1Count: number, ao2Count: number, ao3Count: number;
-    let isGCSE = false;
-    
-    // Determine if this is GCSE or A-Level based on total questions
-    if (totalQuestions === 19) {
-      // GCSE
-      isGCSE = true;
-      ao1Count = 10;
-      ao2Count = 6;
-      ao3Count = 3;
-    } else {
-      // A-Level (24 questions)
-      isGCSE = false;
-      ao1Count = 8;
-      ao2Count = 10;
-      ao3Count = 6;
-    }
-    
+    // Read the generated section labels, including existing saved quizzes.
+    const ao1Count = questions.filter(q => q.aoLevel === 'AO1').length;
+    const ao2Count = questions.filter(q => q.aoLevel === 'AO2').length;
+    const ao3Count = questions.filter(q => q.aoLevel === 'AO3').length;
+
     // Title
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.text(`${topicName} – Mini Quiz`, margin, yPosition);
     yPosition += lineHeight * 2;
+    if (questions.some(q => q.reviewStatus === 'recommended' || q.reviewStatus === 'unavailable')) {
+      doc.setFontSize(10);
+      doc.text('DRAFT - Review AO3 questions and answers before use.', margin, yPosition);
+      yPosition += lineHeight * 2;
+    }
 
     // AO1 Section
     doc.setFontSize(12);
@@ -464,7 +334,7 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
         yPosition = margin;
       }
 
-      const questionText = `${index + 1}. ${preprocessScientificText(question.text)}`;
+      const questionText = `${index + 1}. ${preprocessScientificText(question.text)} [${question.maxMarks} marks]`;
       const questionResult = renderFormattedText(
         doc, 
         questionText, 
@@ -498,7 +368,7 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
         yPosition = margin;
       }
 
-      const questionText = `${index + ao1Count + 1}. ${preprocessScientificText(question.text)}`;
+      const questionText = `${index + ao1Count + 1}. ${preprocessScientificText(question.text)} [${question.maxMarks} marks]`;
       const questionResult = renderFormattedText(
         doc, 
         questionText, 
@@ -520,31 +390,65 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
     
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(`AO3 – Evaluate & Create (${ao3Count} questions)`, margin, yPosition);
+    doc.text(`AO3 – Analyse, Interpret & Evaluate (${ao3Count} questions)`, margin, yPosition);
     yPosition += lineHeight * 1.5;
 
-    // AO3 Questions
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    questions.slice(ao1Count + ao2Count, ao1Count + ao2Count + ao3Count).forEach((question, index) => {
-      if (yPosition > pageHeight - 40) {
+    // Draw shared evidence once in the document, then reference its actual pages.
+    const stimulusPages = new Map<string, { first: number; last: number; figure: number }>();
+    const contentWidth = pageWidth - margin * 2;
+    const ensureRoom = (height: number) => {
+      if (yPosition + height > pageHeight - margin) {
         doc.addPage();
         yPosition = margin;
       }
-
-      const questionText = `${index + ao1Count + ao2Count + 1}. ${preprocessScientificText(question.text)}`;
-      const questionResult = renderFormattedText(
-        doc, 
-        questionText, 
-        margin, 
-        yPosition, 
-        pageWidth - margin * 2,
-        11
-      );
-      yPosition += questionResult.height + 5;
+    };
+    const writeAO3Text = (text: string, bold = false, indent = 0) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(11);
+      const lines: string[] = doc.splitTextToSize(text, contentWidth - indent);
+      for (const line of lines) {
+        ensureRoom(7);
+        doc.text(line, margin + indent, yPosition);
+        yPosition += 6;
+      }
+    };
+    questions.slice(ao1Count + ao2Count, ao1Count + ao2Count + ao3Count).forEach((question, index) => {
+      const number = question.questionNumber || index + ao1Count + ao2Count + 1;
+      doc.setFontSize(11);
+      const questionText = `${number}. ${question.text} [${question.maxMarks} marks]`;
+      const questionHeight = doc.splitTextToSize(questionText, contentWidth).length * 6 + 8;
+      const evidence = (question.stimuli || []).map(stimulus => ({ stimulus, panels: layoutStimulus(stimulus) }));
+      const evidenceHeight = evidence.reduce((sum, e) => stimulusPages.has(e.stimulus.id)
+        ? sum + 12
+        : sum + e.panels.reduce((h, p) => h + p.height * contentWidth / p.width + 16, 0), 0);
+      // Keep ordinary-sized stimulus/question groups together.
+      if (evidenceHeight + questionHeight < pageHeight - margin * 2) ensureRoom(evidenceHeight + questionHeight);
+      else ensureRoom(Math.min(questionHeight + 20, 60));
+      for (const { stimulus, panels } of evidence) {
+        const previous = stimulusPages.get(stimulus.id);
+        if (previous) {
+          const pages = previous.first === previous.last ? `page ${previous.first}` : `pages ${previous.first}-${previous.last}`;
+          writeAO3Text(`Use Stimulus ${previous.figure}: ${stimulus.title} (${pages}).`);
+          continue;
+        }
+        const figure = stimulusPages.size + 1;
+        let lastPanelPage: number | undefined;
+        panels.forEach((panel, panelIndex) => {
+          const height = panel.height * contentWidth / panel.width;
+          const reserve = panelIndex === panels.length - 1 ? Math.min(questionHeight, 30) : 0;
+          ensureRoom(height + 18 + reserve);
+          if (lastPanelPage !== doc.getNumberOfPages()) {
+            writeAO3Text(`Stimulus ${figure}: ${stimulus.title}${panelIndex ? ' (continued)' : ''}`, true);
+            yPosition += 2;
+          }
+          yPosition += drawStimulusPanel(doc, panel, margin, yPosition, contentWidth) + 8;
+          lastPanelPage = doc.getNumberOfPages();
+          stimulusPages.set(stimulus.id, { first: stimulusPages.get(stimulus.id)?.first ?? doc.getNumberOfPages(), last: doc.getNumberOfPages(), figure });
+        });
+      }
+      writeAO3Text(questionText);
+      yPosition += 8;
     });
-
-    yPosition += lineHeight;
 
     // Add Student-Friendly Mark Scheme
     yPosition += lineHeight * 2;
@@ -562,153 +466,32 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
     const markScheme = questions[0]?.markScheme;
     
     if (markScheme) {
-      // AO1 Mark Scheme
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("AO1 – Remember & Understand", margin, yPosition);
-      yPosition += lineHeight * 1.5;
-
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      
-      if (markScheme.ao1 && Array.isArray(markScheme.ao1)) {
-        markScheme.ao1.forEach((item: any) => {
-          if (yPosition > pageHeight - 40) {
-            doc.addPage();
-            yPosition = margin;
+      const sections = [
+        ['ao1', 'AO1 – Remember & Understand'],
+        ['ao2', 'AO2 – Apply & Analyse'],
+        ['ao3', 'AO3 – Analyse, Interpret & Evaluate'],
+      ] as const;
+      for (const [key, heading] of sections) {
+        ensureRoom(35);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(heading, margin, yPosition);
+        yPosition += lineHeight * 1.5;
+        const entries: { questionNumber: number; markPoints: string[]; reasoningToLearn?: string }[] = markScheme[key] || [];
+        for (const item of entries) {
+          ensureRoom(25);
+          const question = questions.find(q => q.questionNumber === item.questionNumber);
+          writeAO3Text(`Q${item.questionNumber}${question ? ` (${question.maxMarks} marks)` : ''}`, true);
+          yPosition += 1;
+          // Paginate every point in all three sections, so long answers cannot disappear off-page.
+          item.markPoints?.forEach(point => writeAO3Text(`- ${point}`, false, 5));
+          if (item.reasoningToLearn) {
+            yPosition += 2;
+            writeAO3Text(`Reasoning to learn: ${item.reasoningToLearn}`, false, 5);
           }
-          
-          doc.setFont("helvetica", "bold");
-          doc.text(`Q${item.questionNumber}`, margin, yPosition);
-          doc.setFont("helvetica", "normal");
-          
-          if (item.markPoints && Array.isArray(item.markPoints)) {
-            item.markPoints.forEach((point: string) => {
-              const pointText = `• ${point}`;
-              // Use simple text rendering for mark scheme to avoid character encoding issues
-              const textWidth = doc.getTextWidth(pointText);
-              const maxWidth = pageWidth - margin * 2 - 15;
-              
-              if (textWidth > maxWidth) {
-                // Simple line wrapping for long text
-                const words = pointText.split(' ');
-                let currentLine = '';
-                
-                words.forEach(word => {
-                  const testLine = currentLine + (currentLine ? ' ' : '') + word;
-                  if (doc.getTextWidth(testLine) > maxWidth && currentLine) {
-                    doc.text(currentLine, margin + 10, yPosition);
-                    yPosition += 6;
-                    currentLine = word;
-                  } else {
-                    currentLine = testLine;
-                  }
-                });
-                
-                if (currentLine) {
-                  doc.text(currentLine, margin + 10, yPosition);
-                  yPosition += 6;
-                }
-              } else {
-                doc.text(pointText, margin + 10, yPosition);
-                yPosition += 6;
-              }
-            });
-          }
-          yPosition += 3;
-        });
-      }
-
-      yPosition += lineHeight;
-
-      // AO2 Mark Scheme
-      if (yPosition > pageHeight - 60) {
-        doc.addPage();
-        yPosition = margin;
-      }
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("AO2 – Apply & Analyse", margin, yPosition);
-      yPosition += lineHeight * 1.5;
-
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      
-      if (markScheme.ao2 && Array.isArray(markScheme.ao2)) {
-        markScheme.ao2.forEach((item: any) => {
-          if (yPosition > pageHeight - 40) {
-            doc.addPage();
-            yPosition = margin;
-          }
-          
-          doc.setFont("helvetica", "bold");
-          doc.text(`Q${item.questionNumber}`, margin, yPosition);
-          doc.setFont("helvetica", "normal");
-          
-          if (item.markPoints && Array.isArray(item.markPoints)) {
-            item.markPoints.forEach((point: string) => {
-              const pointText = `• ${point}`;
-              // Use italic-aware text rendering for AO2 mark scheme
-              const textResult = renderTextWithItalics(
-                doc,
-                pointText,
-                margin + 10,
-                yPosition,
-                pageWidth - margin * 2 - 15,
-                11
-              );
-              yPosition += textResult.height + 2;
-            });
-          }
-          yPosition += 3;
-        });
-      }
-
-      yPosition += lineHeight;
-
-      // AO3 Mark Scheme
-      if (yPosition > pageHeight - 60) {
-        doc.addPage();
-        yPosition = margin;
-      }
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("AO3 – Evaluate & Create", margin, yPosition);
-      yPosition += lineHeight * 1.5;
-
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      
-      if (markScheme.ao3 && Array.isArray(markScheme.ao3)) {
-        markScheme.ao3.forEach((item: any) => {
-          if (yPosition > pageHeight - 40) {
-            doc.addPage();
-            yPosition = margin;
-          }
-          
-          doc.setFont("helvetica", "bold");
-          doc.text(`Q${item.questionNumber}`, margin, yPosition);
-          doc.setFont("helvetica", "normal");
-          
-          if (item.markPoints && Array.isArray(item.markPoints)) {
-            item.markPoints.forEach((point: string) => {
-              const pointText = `• ${point}`;
-              // Use italic-aware text rendering for AO3 mark scheme
-              const textResult = renderTextWithItalics(
-                doc,
-                pointText,
-                margin + 10,
-                yPosition,
-                pageWidth - margin * 2 - 15,
-                11
-              );
-              yPosition += textResult.height + 2;
-            });
-          }
-          yPosition += 3;
-        });
+          yPosition += 6;
+        }
+        yPosition += lineHeight;
       }
     }
 
@@ -739,8 +522,18 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
 
   // Questions
   questions.forEach((question, index) => {
-    // Check if we need a new page
-    if (yPosition > pageHeight - 60) {
+    const questionLines = retrievalLines(doc, preprocessScientificText(question.text), pageWidth - margin * 2 - 10);
+    const optionLines = (question.options ?? []).map((option, i) => retrievalLines(
+      doc, `  ${String.fromCharCode(65 + i)}) ${preprocessScientificText(option)}`, pageWidth - margin * 2 - 15
+    ));
+    const newTopic = !!question.topic && question.topic !== currentTopic;
+    const nextNumber = newTopic ? 1 : questionNumberInTopic + 1;
+    const headingHeight = (newTopic ? (index > 0 ? lineHeight * 3.5 : 0) + lineHeight * 0.8 : 0)
+      + (question.topic ? nextNumber === 1 ? lineHeight * 1.5 : nextNumber === 6 ? lineHeight * 3.5 : 0 : 0);
+    const blockHeight = headingHeight + questionLines.length * 8.8 + 5
+      + optionLines.reduce((height, lines) => height + lines.length * 8.8 + 2, 0) + lineHeight * 1.5;
+    // Keep an ordinary MCQ together. Oversized blocks still paginate line by line.
+    if (yPosition + blockHeight > pageHeight - margin && yPosition > margin) {
       doc.addPage();
       yPosition = margin;
     }
@@ -794,32 +587,13 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
     doc.text(questionNumber, margin, yPosition);
     
     doc.setFont("helvetica", "normal");
-    const processedQuestionText = preprocessScientificText(question.text);
-    const questionResult = renderFormattedText(
-      doc, 
-      processedQuestionText, 
-      margin + 8, 
-      yPosition, 
-      pageWidth - margin * 2 - 10,
-      11
-    );
-    yPosition += questionResult.height;
+    yPosition = drawRetrievalLines(doc, questionLines, margin + 8, yPosition, margin);
 
     // Options for MCQ
     if (question.type === "MULTIPLE_CHOICE" && question.options) {
       yPosition += 5;
-      question.options.forEach((option, optIndex) => {
-        const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D (uppercase)
-        const processedOption = preprocessScientificText(option);
-        const optionResult = renderFormattedText(
-          doc,
-          `  ${optionLabel}) ${processedOption}`,
-          margin + 5,
-          yPosition,
-          pageWidth - margin * 2 - 15,
-          11
-        );
-        yPosition += optionResult.height + 2;
+      optionLines.forEach(lines => {
+        yPosition = drawRetrievalLines(doc, lines, margin + 5, yPosition, margin) + 2;
       });
     }
 
@@ -865,7 +639,24 @@ export function generateAnswerKey(questions: GeneratedQuestion[]): jsPDF {
   let questionNumberInTopic = 0;
 
   questions.forEach((question, index) => {
-    if (yPosition > 270) {
+    let answerText = `${index + 1}. `;
+
+    if (question.type === "MULTIPLE_CHOICE" && question.correctAnswer !== undefined && question.options) {
+      const letter = String.fromCharCode(65 + question.correctAnswer); // uppercase A, B, C, D
+      const processedAnswer = preprocessScientificText(question.options[question.correctAnswer]);
+      answerText += `${letter}) ${processedAnswer}`;
+    } else if (question.type === "TRUE_FALSE" && question.correctAnswer !== undefined) {
+      answerText += question.correctAnswer === 1 ? "True" : "False";
+    } else {
+      answerText += "[Open-ended answer]";
+    }
+
+    const lines = retrievalLines(doc, answerText, pageWidth - margin * 2);
+    const newTopic = !!question.topic && question.topic !== currentTopic;
+    const nextNumber = newTopic ? 1 : questionNumberInTopic + 1;
+    const headingHeight = (newTopic ? (index > 0 ? lineHeight * 3.5 : 0) + lineHeight * 2 : 0)
+      + (question.topic ? nextNumber === 1 ? lineHeight * 1.5 : nextNumber === 6 ? lineHeight * 3.5 : 0 : 0);
+    if (yPosition + headingHeight + lines.length * 8.8 + 4 > doc.internal.pageSize.getHeight() - margin && yPosition > margin) {
       doc.addPage();
       yPosition = margin;
     }
@@ -916,27 +707,7 @@ export function generateAnswerKey(questions: GeneratedQuestion[]): jsPDF {
       doc.setFont("helvetica", "normal");
     }
 
-    let answerText = `${index + 1}. `;
-    
-    if (question.type === "MULTIPLE_CHOICE" && question.correctAnswer !== undefined && question.options) {
-      const letter = String.fromCharCode(65 + question.correctAnswer); // uppercase A, B, C, D
-      const processedAnswer = preprocessScientificText(question.options[question.correctAnswer]);
-      answerText += `${letter}) ${processedAnswer}`;
-    } else if (question.type === "TRUE_FALSE" && question.correctAnswer !== undefined) {
-      answerText += question.correctAnswer === 1 ? "True" : "False";
-    } else {
-      answerText += "[Open-ended answer]";
-    }
-
-    const answerResult = renderFormattedText(
-      doc,
-      answerText,
-      margin,
-      yPosition,
-      170,
-      11
-    );
-    yPosition += answerResult.height + 4;
+    yPosition = drawRetrievalLines(doc, lines, margin, yPosition, margin) + 4;
   });
 
   return doc;

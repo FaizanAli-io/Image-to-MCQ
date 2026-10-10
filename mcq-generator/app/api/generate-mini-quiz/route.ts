@@ -1,120 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateMiniQuiz } from '@/lib/openai';
 import { uploadToR2, deleteFromR2, getSignedR2Url } from '@/lib/r2-client';
+import { MiniQuizEvidenceError } from '@/lib/mini-quiz-errors';
 
 export const runtime = 'nodejs';
+export const maxDuration = 90;
 
 export async function POST(request: NextRequest) {
-  let uploadedKey: string | null = null;
-  
+  const uploadedKeys: string[] = [];
+
   try {
-    console.log("\n" + "=".repeat(80));
-    console.log("🎯 MINI QUIZ WORKFLOW: /api/generate-mini-quiz");
-    console.log("=".repeat(80));
-
     const formData = await request.formData();
-    const file = formData.get('image') as File;
-    const educationLevel = formData.get('educationLevel') as "GCSE" | "A-LEVEL" || "GCSE";
-    
-    // Validate inputs
-    if (!file) {
+    // Preserve support for the original single-image request field.
+    const entries = [...formData.getAll('images'), ...formData.getAll('image')];
+    const educationLevel = formData.get('educationLevel') || "GCSE";
+    if (educationLevel !== 'GCSE' && educationLevel !== 'A-LEVEL') {
+      return NextResponse.json({ error: 'Education level must be GCSE or A-LEVEL' }, { status: 400 });
+    }
+
+    if (entries.length < 1 || entries.length > 2) {
       return NextResponse.json(
-        { error: 'Exactly 1 image is required for mini quiz' },
+        { error: 'Mini Quiz requires 1 or 2 pages for the same quiz' },
         { status: 400 }
       );
     }
 
-    if (!file.type.startsWith('image/')) {
-      return NextResponse.json(
-        { error: 'File must be an image' },
-        { status: 400 }
-      );
-    }
-
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      return NextResponse.json(
-        { error: 'Image is too large (>10MB)' },
-        { status: 400 }
-      );
+    const files: File[] = [];
+    for (const entry of entries) {
+      if (typeof entry === 'string' || !entry.type.startsWith('image/')) {
+        return NextResponse.json({ error: 'Each file must be an image' }, { status: 400 });
+      }
+      if (entry.size > 10 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Each image must be 10MB or smaller' }, { status: 400 });
+      }
+      files.push(entry);
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.error("❌ API key not configured!");
-      return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
     }
 
-    console.log("✅ API key found");
-    console.log(`📚 Education level: ${educationLevel}`);
-    console.log(`📁 Processing image: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-
-    // Step 1: Upload image to R2 (as-is, no compression)
-    console.log("🚀 Step 1: Uploading image to R2...");
-    
-    const buffer = Buffer.from(await file.arrayBuffer());
-    uploadedKey = await uploadToR2(buffer, file.name, file.type);
-    
-    console.log(`✅ Uploaded image: ${uploadedKey}`);
-    
-    // Generate signed URL for OpenAI access
-    const signedUrl = await getSignedR2Url(uploadedKey);
-    console.log(`🔗 Generated signed URL for image`);
-
-    // Step 2: Generate mini quiz using R2 URL
-    console.log("🤖 Step 2: Generating mini quiz with AI...");
-    console.log(`🔗 Using signed URL: ${signedUrl.substring(0, 100)}...`);
-    
-    const questions = await generateMiniQuiz(
-      apiKey,
-      signedUrl,
-      educationLevel
-    );
-
-    console.log("✅ Successfully generated mini quiz");
-    console.log(`📊 Total: ${questions.length} questions`);
-
-    // Step 3: Clean up - Delete image from R2 immediately
-    console.log("🧹 Step 3: Cleaning up temporary image...");
-    
-    try {
-      await deleteFromR2(uploadedKey);
-      console.log(`🗑️ Deleted image: ${uploadedKey}`);
-    } catch (error) {
-      console.error(`❌ Failed to delete ${uploadedKey}:`, error);
+    const signedUrls: string[] = [];
+    for (const file of files) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const key = await uploadToR2(buffer, file.name, file.type);
+      // Track each upload before signing, so partial failures are cleaned up too.
+      uploadedKeys.push(key);
+      signedUrls.push(await getSignedR2Url(key));
     }
-    
-    console.log("✅ Cleanup completed");
-    console.log("=".repeat(80) + "\n");
 
-    return NextResponse.json({ 
+    const questions = await generateMiniQuiz(apiKey, signedUrls, educationLevel);
+    const reviewStatus = questions.some(q => q.reviewStatus === 'unavailable') ? 'unavailable'
+      : questions.some(q => q.reviewStatus === 'recommended') ? 'recommended' : 'not_run';
+    return NextResponse.json({
       success: true,
       questions,
-      message: `Successfully generated ${questions.length} questions and cleaned up temporary file`
+      reviewStatus,
+      message: `Successfully generated ${questions.length} questions`
     });
-
   } catch (error) {
-    console.error("❌ Mini quiz workflow failed:", error);
-    
-    // Emergency cleanup - Delete uploaded file on error
-    if (uploadedKey) {
-      console.log("🚨 Emergency cleanup: Deleting uploaded file...");
-      try {
-        await deleteFromR2(uploadedKey);
-        console.log(`🧹 Emergency cleanup completed: ${uploadedKey}`);
-      } catch (cleanupError) {
-        console.error("❌ Emergency cleanup failed:", cleanupError);
-      }
-    }
-    
+    const invalidEvidence = error instanceof MiniQuizEvidenceError;
+    // Log useful details without asking Next's dev logger to format an Error stack
+    // (which was triggering the secondary invalid-source-map warnings).
+    console.error('Mini quiz workflow failed:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      cause: error instanceof Error && error.cause instanceof Error ? error.cause.message : undefined,
+    });
     return NextResponse.json(
-      { 
+      {
         error: error instanceof Error ? error.message : 'Failed to generate mini quiz',
-        success: false 
+        code: invalidEvidence ? 'INVALID_AO3_EVIDENCE' : 'QUIZ_GENERATION_FAILED',
+        success: false
       },
-      { status: 500 }
+      { status: invalidEvidence ? 422 : 500 }
     );
+  } finally {
+    // Attempt every deletion on success and failure, including partial uploads.
+    await Promise.all(uploadedKeys.map(async (key) => {
+      try {
+        await deleteFromR2(key);
+      } catch (error) {
+        console.error(`Failed to delete temporary image ${key}:`, error);
+      }
+    }));
   }
 }

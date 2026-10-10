@@ -1,0 +1,854 @@
+AO2
+GCSE
+Using only the scientific knowledge contained in the supplied textbook screenshot, create 6
+GCSE Science AO2 application questions and a student-friendly mark scheme.
+PURPOSE OF THE QUESTIONS
+These questions will form the AO2 section of a mini-quiz completed after a student has revised
+this page.
+Their purpose is to give students controlled practice at USING and UNDERSTANDING the
+scientific knowledge they have just revised in different ways.
+They should act as a stepping stone between recalling knowledge and later completing full
+exam questions.
+They are NOT intended to reproduce the exact distribution or difficulty of AO2 questions found
+in an exam. For example, even where a topic is commonly assessed through calculations in
+exams, these questions can still assess whether students understand and can apply the
+underlying science.
+WHAT THE QUESTIONS SHOULD ASSESS
+Focus primarily on students applying the scientific ideas/content they have just revised.
+Treat anything taught on the supplied page as part of the content. For example, if the page
+teaches a practical method, working-scientifically idea, technique or procedure, students can be
+asked to apply it.
+Do not require substantial scientific knowledge from other topics that is not contained in the
+supplied page.
+Maths, equations, numerical information, graphs or data may be used where they provide a
+useful way for students to apply the science they have just revised.
+For example, students may use a mathematical relationship qualitatively to predict what
+happens when a variable changes.
+However, do not make handling, solving or manipulating maths the main skill being assessed.
+Avoid substantial calculations, multi-stage mathematical problems or questions where success
+primarily depends on mathematical technique rather than understanding the science.
+APPLICATION TYPES
+Create genuine AO2 questions. Students should have to take something they have learned from
+the page and USE it, rather than simply recall, state or describe what the page says.
+Use the following forms of application where they genuinely fit the supplied content:
+• NOVEL CONTEXT – apply learned knowledge to a new example or situation.
+• DEVELOP FURTHER – use a learned principle or relationship to work out something that was
+not explicitly taught.
+• MAKE SENSE OF INFORMATION – use learned science to understand, interpret or explain
+simple information supplied in the question.
+• MAKE LINKS – connect two or more scientific ideas where the knowledge required for the link
+is contained within the supplied revision content.
+Select the application types that best suit the scientific content rather than forcing equal
+numbers of each type.
+Where the content genuinely allows, use at least 3 different application types across the 6
+questions. Do not force an application type where it does not fit naturally.
+BREADTH AND VARIETY
+Across the 6 questions, maximise the range of scientific ideas and relationships from the
+supplied content that students have to apply.
+Do not repeatedly test the same underlying scientific idea or relationship merely by changing the
+surface context.
+Where the page contains enough content, each question should assess a meaningfully different
+piece, relationship or combination of the revised knowledge.
+It is acceptable to revisit an important idea where it is being applied in a meaningfully different
+way.
+STEPPING-STONE DIFFICULTY
+These should be stepping-stone AO2 questions rather than full exam-level AO2 questions.
+Each question should:
+• require genuine application of the revised knowledge;
+• use a short, clear context;
+• normally require only one main application or a short reasoning chain;
+• make the relevant scientific idea reasonably easy to identify;
+• contain little or no irrelevant information;
+• rely primarily on the content the student has just revised;
+• use concise, accessible wording.
+Some questions may be relatively close to AO1, provided the student still has to apply the
+knowledge to a situation rather than simply reproduce it.
+Other questions can require greater transfer or connection between ideas.
+There does NOT need to be a fixed progression in difficulty from Question 1 to Question 6.
+Prioritise a useful variety of applications over arranging the questions from easiest to hardest.
+Do not create difficulty simply by making contexts longer, adding irrelevant information, requiring
+substantial unrevised knowledge or creating unnecessarily long reasoning chains.
+The aim is to preserve genuine AO2 application while reducing the contextual, synoptic and
+multi-step complexity students are likely to encounter later in full exam questions.
+QUESTION QUALITY
+Every question must contain enough information for one scientifically defensible answer to
+follow from the supplied revision content.
+Do not rely on unstated assumptions about the scenario.
+Provide enough information for students to identify the relevant science, but avoid unnecessarily
+stating or strongly implying the conclusion they are being asked to reach.
+Before finalising each question, check that:
+• the answer is supported by the supplied revision content;
+• the question genuinely requires application rather than simple recall;
+• the scenario contains enough information to reach the intended answer;
+• no substantial knowledge from outside the supplied content is required;
+• the wording does not unnecessarily give away the answer.
+QUESTION OUTPUT
+Create exactly 6 questions.
+Use a mixture of appropriate question styles such as explain, predict, suggest, compare,
+determine or interpret where these genuinely suit the content.
+Do not use multiple-choice questions.
+Keep the questions concise.
+First determine the minimum scientific reasoning needed for a complete answer to each
+question. Then assign the number of marks from the genuinely distinct assessable points in that
+reasoning.
+Do not choose a desired mark total first and then split, repeat or reword ideas simply to create
+additional marks.
+MARK SCHEME
+After the 6 questions, provide a student-friendly mark scheme.
+For each question:
+• State the total number of marks available.
+• Break the answer into the minimum distinct scientific reasoning points needed to answer the
+question.
+• Award individual marks to clear scientific points wherever appropriate.
+• Show the minimum scientific reasoning chain required to reach the answer rather than only
+giving the final answer.
+• Keep each marking point concise and specific enough that a student can compare it directly
+with their own answer.
+• Only award separate marks for genuinely distinct pieces of scientific knowledge or reasoning.
+• Do not create additional marking points by restating, rewording or artificially splitting the same
+scientific idea.
+• Each marking point should help a student identify a distinct part of their reasoning that was
+present or missing.
+• Do not unnecessarily combine several genuinely separate pieces of reasoning into one
+marking point.
+• Do not add scientific knowledge that was not required to answer the original question.
+• Use scientifically precise wording that is consistent with the supplied revision content.
+• Do not introduce stronger, different or less precise scientific claims than the supplied content
+supports.
+• Accept scientifically equivalent wording where appropriate.
+Do NOT label marking points as "knowledge", "application", "recall" or similar. The mark scheme
+should clearly expose the scientific reasoning required, but students should compare it with their
+own answer and determine for themselves why any marks were lost.
+A-Level
+Using only the biological knowledge contained in the supplied textbook screenshot, create 6
+A-level Biology AO2 application questions and a student-friendly mark scheme.
+PURPOSE OF THE QUESTIONS
+These questions will form the AO2 section of a mini-quiz completed after a student has revised
+this page.
+Their purpose is to give students controlled practice at USING and UNDERSTANDING the
+biological knowledge they have just revised in different ways.
+They should act as a stepping stone between recalling knowledge and later completing full
+A-level exam questions.
+They are NOT intended to reproduce the exact distribution or difficulty of AO2 questions found
+in an exam. For example, even where a topic is commonly assessed through calculations or
+complex data analysis in exams, these questions can still assess whether students understand
+and can apply the underlying biology.
+WHAT THE QUESTIONS SHOULD ASSESS
+Focus primarily on students applying the biological ideas, processes and content they have just
+revised.
+Treat anything taught on the supplied page as part of the content. For example, if the page
+teaches a practical method, experimental technique, procedure or working-scientifically idea,
+students can be asked to apply it.
+Do not require substantial biological knowledge from other topics that is not contained in the
+supplied page.
+Questions may place the revised knowledge into:
+• theoretical contexts — applying biological knowledge to a scientific situation, problem or
+mechanism;
+• practical contexts — applying knowledge to an experimental method, technique or procedure.
+Questions may also involve:
+• qualitative information — observations, descriptions, results or other non-numerical
+information;
+• quantitative information — measurements, numerical information, simple calculations or
+numerical relationships.
+Use these where they genuinely suit the supplied content. Do not force an equal number of
+theoretical/practical or qualitative/quantitative questions.
+QUANTITATIVE INFORMATION AND MATHS
+Maths, equations, numerical information, graphs or data may be used where they naturally help
+students apply or understand the biology they have just revised.
+Brief calculations are allowed.
+However, do not create questions whose main challenge is carrying out a mathematical
+procedure rather than applying the biological or practical understanding taught on the page.
+For example, using numerical information to predict, compare, explain or make sense of a
+biological situation is particularly appropriate.
+APPLICATION TYPES
+Create genuine AO2, not recall questions. A student should have to take something they have
+learned from the page and USE it in a new situation, rather than simply repeat, state or describe
+what the page says.
+Use the following forms of application where they genuinely fit the content:
+• Novel context — apply the knowledge to a new example or biological situation.
+• Develop further — use a learned biological principle or mechanism to work out something that
+was not explicitly taught.
+• Make sense of information — use the learned biology to understand, interpret or explain
+information supplied in the question.
+• Make links — connect two or more biological ideas where the knowledge required for the link
+is contained within the supplied revision content.
+MECHANISMS AND PROCESSES
+Where the page teaches a biological mechanism, pathway, sequence or process, consider
+changing, inhibiting, removing or disrupting one component and asking the student to predict
+and explain the downstream consequence.
+For example, a question might change one stage of a pathway, prevent a molecule or structure
+from functioning normally, or alter a condition affecting the process.
+These questions should require the student to reason through the biological mechanism rather
+than simply recall the sequence.
+Do not overuse this structure. It is one form of application rather than the default form for every
+question.
+DIVERSITY OF APPLICATION
+Select the application types and question structures that best suit the biological content rather
+than forcing equal numbers of each.
+Where the content allows, use at least 3 different forms of application across the 6 questions.
+Do not force an application type where it does not fit naturally.
+Vary both:
+1. the biological knowledge being applied; and
+2. what the student has to DO with that knowledge.
+For example, the set might require students to predict a consequence, explain an unfamiliar
+observation, work forwards through a mechanism, reason backwards from a result, compare
+two situations, interpret supplied information, apply a practical principle or determine the effect
+of changing a variable.
+Avoid creating several questions that use essentially the same application structure, even if
+different pieces of biological knowledge are being tested.
+For example, do not repeatedly change or inhibit a different stage of the same pathway and ask
+the student to explain the downstream effect.
+Avoid testing the same biological relationship in essentially the same way more than once.
+GUARDRAIL AGAINST NEAR-AO1 QUESTIONS
+Some questions may involve relatively small amounts of transfer and therefore sit close to AO1.
+This is acceptable provided the student still has to genuinely apply the knowledge.
+However, across the set, avoid relying too heavily on questions where a short context simply
+describes a structure, process or function and the student identifies or recalls the corresponding
+biological term.
+In particular, factual textbook pages should not result mainly in questions that simply ask
+students to identify a structure from its function, identify a process from its description, or repeat
+a memorised structure-function relationship.
+Where possible, use factual knowledge as the starting point for a prediction, explanation,
+comparison or consequence.
+STEPPING-STONE DIFFICULTY
+These should be stepping-stone A-level AO2 questions rather than full exam-level AO2
+questions.
+Each question should:
+• require genuine application of the revised biological knowledge;
+• use a concise and clearly presented context;
+• normally require only one or two main application/reasoning steps;
+• make the relevant biological idea reasonably identifiable;
+• contain little or no irrelevant information;
+• be answerable primarily using the content just revised;
+• use appropriate A-level biological terminology;
+• allow students to demonstrate understanding without the additional complexity of a full exam
+question.
+Some questions may be relatively close to AO1, provided the student still has to apply the
+knowledge to a new situation. Others can require greater transfer.
+There does not need to be a fixed progression in difficulty from Question 1 to Question 6.
+Do not make questions more difficult simply by:
+• making the context longer;
+• adding irrelevant information;
+• requiring substantial synoptic knowledge from other topics;
+• requiring unnecessarily complex mathematical processing;
+• or creating unnecessarily long reasoning chains.
+The aim is to preserve genuine A-level AO2 application while reducing the contextual, synoptic,
+mathematical and multi-step complexity students are likely to encounter in full exam questions.
+MARK ALLOCATION
+Use an appropriate mark allocation for each question based on the minimum biological
+reasoning required.
+Most questions should normally be worth 2–4 marks.
+Do not increase the mark allocation simply to make a question appear more A-level.
+STUDENT-FRIENDLY MARK SCHEME
+After the 6 questions, provide a student-friendly mark scheme.
+For each question:
+• show the question number and total marks;
+• break the answer into the minimum scientific reasoning chain required;
+• present each distinct marking point separately;
+• show [1] beside each marking point;
+• keep the wording clear enough for a student to compare directly with their own answer;
+• include the biological links needed to earn the marks rather than only giving the final answer.
+Do not rigidly label marking points as “knowledge”, “application” or “answer”. Biological
+reasoning may combine these.
+The mark scheme should make it possible for a student to identify exactly where their reasoning
+chain became incomplete or incorrect.
+Do not award separate marks twice for essentially the same biological idea.
+OUTPUT
+Create exactly 6 questions followed by the student-friendly mark scheme.
+Use a mixture of appropriate question styles such as predict, explain, suggest, compare,
+interpret and determine where these suit the content.
+Do not use multiple-choice questions.
+Keep contexts and questions concise.
+Do not identify the application type, context type or information type beside each question.
+Do not explain why you selected each question.
+AO3
+GCSE
+Using only the scientific knowledge contained in the supplied textbook screenshot, create 3
+GCSE Science AO3 questions and a student-friendly mark scheme.
+PURPOSE OF THE QUESTIONS
+These questions will form the AO3 section of a mini-quiz completed after a student has revised
+this page.
+Their purpose is to give students controlled practice at ANALYSING, INTERPRETING and
+EVALUATING scientific information and evidence.
+They should act as a stepping stone between revising scientific content and later completing full
+exam questions containing AO3.
+The questions should therefore practise genuine AO3 thinking while reducing the additional
+difficulty created by long, complex or information-heavy exam stimuli.
+They are NOT intended to reproduce the exact distribution, length or difficulty of AO3 questions
+found in an exam.
+WHAT THE QUESTIONS SHOULD ASSESS
+Use the supplied textbook page as the scientific knowledge base for the questions.
+Students may be given new results, observations, data, experimental situations, claims or other
+information related to this knowledge and asked to analyse or evaluate them.
+Do not require substantial scientific knowledge from other topics that is not contained in the
+supplied page.
+Questions should primarily assess one or more of the following AO3 types:
+1. INTERPRET EVIDENCE
+Student analyses supplied information and identifies a meaningful pattern, relationship,
+difference or implication.
+Possible stimuli include graphs, tables, results, diagrams or observations.
+2. EXPLAIN EVIDENCE
+Student uses scientific understanding to explain a supplied result, pattern, difference or
+observation.
+Possible stimuli include results, observations, graphs, tables, diagrams or experimental
+contexts.
+3. PREDICT / INFER
+Student uses supplied evidence to determine something that is not directly stated or shown.
+Possible stimuli include graphs, tables, results, trends, observations, diagrams or scenarios.
+4. EVALUATE AN INVESTIGATION
+Student analyses how an investigation was carried out to identify limitations, evaluate the quality
+of the evidence, or suggest justified improvements.
+This may include controls and variables, errors and limitations, improvements, reliability,
+uncertainty, validity or representativeness.
+Possible stimuli include experimental methods, apparatus, results, graphs, tables or sampling
+procedures.
+5. JUDGE A CONCLUSION / CLAIM
+Student analyses evidence to decide whether, or to what extent, it supports a stated conclusion
+or claim.
+Possible stimuli include a claim combined with results, graphs, tables, experimental evidence,
+written scientific information or competing evidence.
+QUESTION SELECTION
+Create 3 questions that provide useful AO3 practice for the scientific content on the supplied
+page.
+Before selecting the questions, consider the opportunities provided by the content for ALL FIVE
+AO3 types.
+Select the question types that provide the most useful and natural AO3 practice for that
+particular content.
+Do NOT force coverage of particular AO3 types simply to create variety.
+However, do NOT default to INTERPRET EVIDENCE or JUDGE A CONCLUSION / CLAIM
+simply because these can easily be constructed using generated tables or claims.
+Variation in the selected AO3 types across different scientific topics is expected.
+Give particular consideration to EXPLAIN EVIDENCE and PREDICT / INFER when the supplied
+content contains a mechanism, process or cause-and-effect relationship that could be used to
+make sense of an unfamiliar result or observation.
+Avoid producing multiple questions that assess essentially the same AO3 reasoning when other
+useful AO3 opportunities are available.
+The questions may use different AO3 types or may combine closely related AO3 reasoning
+where this creates a useful question.
+Questions should primarily assess AO3. A small amount of AO2 reasoning may be required
+where students need to use their recently revised scientific knowledge to interpret, explain or
+evaluate the supplied evidence. Do not allow the AO2 demand to become the main challenge of
+the question.
+STEPPING-STONE DIFFICULTY
+Isolate the important AO3 thinking as much as possible.
+Keep unfamiliar information concise and accessible.
+Use the minimum amount of information needed for the student to perform the intended AO3
+reasoning.
+A question should not become difficult simply because the student has to process a large
+amount of unfamiliar information.
+Prefer one clear AO3 reasoning task over several different AO3 demands bundled into one
+complex exam-style question.
+The questions should still require genuine analysis, interpretation, evaluation, judgement or
+inference. Do not make them easier by turning them into AO1 recall or straightforward AO2
+application questions.
+AO3 TYPE-SPECIFIC REQUIREMENTS
+For INTERPRET EVIDENCE questions:
+Ensure the task requires students to determine what the evidence MEANS rather than merely
+copy values or state an immediately obvious trend.
+Identifying a pattern may form part of the reasoning, but where the revised content allows,
+require students to use that pattern to reach a scientific interpretation, comparison or
+implication.
+For EXPLAIN EVIDENCE questions:
+Provide an unfamiliar result, observation, pattern or difference that students can explain using
+the scientific understanding they have just revised.
+The evidence should create something meaningful for the student to explain rather than simply
+restating a fact from the textbook page.
+For PREDICT / INFER questions:
+The prediction or inference must genuinely arise from the supplied evidence.
+Do not classify a question as Predict / Infer when the stimulus merely provides a context and the
+answer is obtained mainly by applying recalled scientific knowledge.
+The evidence should allow the student to determine something that is not directly stated or
+shown.
+For EVALUATE AN INVESTIGATION questions:
+Ensure the supplied method, results or experimental information contains enough information
+for the intended limitation, control, improvement or other evaluation to be identified.
+Do not explicitly tell students the problem they are supposed to evaluate.
+For JUDGE A CONCLUSION / CLAIM questions:
+Avoid claims that are directly confirmed or contradicted by a single sentence in the stimulus.
+Where appropriate, provide more than one relevant piece of evidence so the student must
+weigh the evidence or determine whether the claim is fully, partly or not supported.
+The supplied evidence must be sufficient for a reasoned judgement.
+STIMULUS USE
+Use a stimulus when it is needed to create genuine AO3 reasoning.
+Do NOT add a graph, table, diagram, experimental method or other stimulus merely to make a
+question look more like an exam question.
+A stimulus may be as simple as:
+- a short observation;
+- a small set of results;
+- a short scientific scenario;
+- a student's or scientist's claim;
+- a brief experimental method.
+Where useful, you may also create:
+- numerical data;
+- a small results table;
+- written experimental information.
+Follow these four stimulus rules:
+RULE 1 — USE THE SIMPLEST FORMAT THAT PRESERVES THE AO3 REASONING
+Use the simplest stimulus format capable of presenting the evidence needed for the intended
+AO3 reasoning.
+Do not convert information into a table, graph or diagram when a short written observation or
+description would allow the student to perform exactly the same reasoning.
+For example, if the only relevant information is that a substance does not conduct electricity
+when solid but does conduct when molten, this can be presented as a short observation rather
+than an unnecessary table.
+However, simplicity of presentation must NOT remove part of the intended AO3 thinking.
+RULE 2 — INCLUDE ONLY INFORMATION THAT CONTRIBUTES TO THE REASONING
+Every variable, value, category or piece of contextual information included in the stimulus
+should have a purpose in the intended AO3 reasoning.
+Do not add variables such as year, trial number, group number or other contextual information
+unless students need them to analyse, interpret or evaluate the evidence.
+Reduce unnecessary information rather than reducing the scientific reasoning required.
+RULE 3 — DO NOT STATE THE FEATURE THE STUDENT IS SUPPOSED TO IDENTIFY
+Do not simplify a stimulus by explicitly telling students the pattern, difference, flaw, relationship
+or other feature that they are supposed to identify or interpret.
+If extracting information from a graph, diagram, experimental setup, method or set of results is
+itself part of the intended AO3 reasoning, preserve that task for the student.
+For example, if students should compare the gradients of two lines on a graph, do not replace
+the graph with a sentence telling them which line is steeper.
+Similarly, if students should identify an uncontrolled variable from an experimental setup, do not
+explicitly state which variable was different.
+In these cases, specify the graph, diagram or other stimulus that is required, even if it cannot
+currently be rendered.
+RULE 4 — THE STIMULUS MUST CREATE THE AO3 DEMAND, NOT MERELY PROVIDE AN
+AO2 CONTEXT
+The student should genuinely need to analyse, interpret or evaluate the supplied evidence to
+answer the question.
+Do not create a stimulus that merely places recalled scientific knowledge into an unfamiliar
+context while the answer is obtained mainly through straightforward application of that
+knowledge.
+This is particularly important for PREDICT / INFER questions.
+Ask whether removing the evidence would substantially remove the reasoning required to reach
+the answer. If the student could answer essentially the same question from recalled knowledge
+alone, reconsider whether the question genuinely assesses AO3.
+STIMULI THAT CANNOT CURRENTLY BE PRODUCED
+You may specify a graph, diagram, image or other stimulus even if you cannot currently produce
+it.
+When this occurs, DO NOT avoid the question or replace it with a weaker question simply
+because the stimulus cannot currently be rendered.
+Instead, clearly describe exactly what stimulus would be required.
+For a graph, provide:
+- the graph type;
+- x-axis variable and units;
+- y-axis variable and units;
+- all data required to construct it;
+- any lines/groups/categories that should appear.
+For a diagram or image, provide:
+- what should be shown;
+- the scientifically important features;
+- any labels required;
+- which features must be compared or interpreted by the student.
+For an experimental setup, describe the apparatus/setup and any scientifically important
+features that would need to be represented.
+Do not include unnecessary visual detail.
+IMPORTANT: The purpose of this beta is to identify the best AO3 questions AND the stimuli
+required to support them. Do not restrict question selection according to current technical
+stimulus-generation limitations.
+QUESTION DESIGN
+Questions should be concise and clear.
+Keep reading demand lower than a typical full exam question wherever possible.
+Use accessible unfamiliar contexts rather than complex exam-style scenarios.
+Do not give away the scientific reasoning required to answer the question.
+Do not simply ask students to recall something stated on the textbook page.
+Do not create questions where the answer depends mainly on guessing.
+Where students evaluate evidence or a conclusion, ensure the supplied information contains
+enough evidence for them to make a reasoned judgement.
+Where students evaluate an investigation, ensure the method contains enough information for
+the intended limitation, control, improvement or other evaluation to be identified.
+Where students interpret data, ensure the data contain a meaningful feature that actually
+requires interpretation rather than simple extraction of a number.
+Where students predict or infer, ensure the answer follows reasonably from the supplied
+evidence rather than requiring unsupported speculation.
+STIMULUS ACCURACY
+Any generated results, data, methods, claims or other stimuli must be scientifically plausible and
+consistent with the scientific knowledge on the supplied page.
+Do not introduce additional scientific knowledge that students would need to have revised
+elsewhere.
+Generated data should contain only the complexity needed for the intended question.
+Generated data should make the intended scientific relationship accessible, but should not
+always be perfectly proportional or artificially obvious.
+Include only as much variation or complexity as is useful for the intended AO3 reasoning.
+Do not create artificial anomalies, differences or relationships unless they have a clear purpose
+in the AO3 reasoning being assessed.
+OUTPUT FORMAT
+Produce TWO clearly separated sections.
+SECTION 1 — STUDENT OUTPUT
+This section should contain ONLY what a student needs to complete the questions.
+Do NOT display:
+- the AO3 taxonomy type;
+- the words "AO3 type";
+- beta-testing notes;
+- stimulus-generation notes;
+- explanations of why a stimulus was selected.
+For each question, provide:
+Question [number]
+[Present any written stimulus, results or table the student needs.]
+If a graph, diagram, image or other externally generated stimulus is required, insert:
+[STIMULUS TO BE INSERTED HERE]
+Question:
+[Question text]
+Marks:
+[Total marks]
+After all 3 questions provide:
+MARK SCHEME
+Question 1
+- [mark point]
+- [mark point]
+Question 2
+- [mark point]
+- [mark point]
+Question 3
+- [mark point]
+- [mark point]
+Keep the mark scheme student-friendly and directly matched to each question.
+SECTION 2 — BETA REVIEW INFORMATION
+This section is NOT student-facing.
+For each question provide:
+Question [number]
+Primary AO3 type:
+[State the primary taxonomy type.]
+Stimulus format:
+[e.g. written observation / results / table / graph / experimental method / diagram / claim +
+evidence]
+Stimulus production:
+[Produced directly / External generation required]
+If external generation is required:
+STIMULUS SPECIFICATION:
+[Give the complete specification needed to construct it.]
+For graphs include:
+- graph type;
+- x-axis variable and units;
+- y-axis variable and units;
+- all plotted data;
+- lines/groups/categories.
+For diagrams/images include:
+- what must be shown;
+- scientifically important features;
+- required labels;
+- which features the student must identify, compare or interpret.
+For experimental setups include:
+- apparatus/setup;
+- scientifically important differences or features that must be represented.
+Do not reveal these features in the student-facing question if identifying them is part of the AO3
+task.
+Briefly state:
+AO3 reasoning being tested:
+[One sentence describing what the student must do with the evidence.]
+Do not change or simplify a good AO3 question solely to avoid an externally generated stimulus.
+Do not include answer lines, writing spaces or blank lines for student responses.
+A-Level
+A-LEVEL BIOLOGY AO3 MINI-QUIZ GENERATION PROMPT
+Using only the biological knowledge contained in the supplied textbook screenshot/page(s),
+create 6 A-level Biology AO3 questions and a student-friendly mark scheme.
+PURPOSE OF THE QUESTIONS
+These questions will form the AO3 section of a mini-quiz completed after a student has revised
+the supplied textbook content.
+Their purpose is to give students controlled practice at ANALYSING, INTERPRETING and
+EVALUATING scientific information and evidence.
+They should act as a stepping stone between revising biological content and later completing
+full A-level Biology exam questions containing AO3.
+The questions should therefore practise genuine AO3 thinking while reducing the additional
+difficulty created by long, complex or information-heavy exam stimuli.
+They are NOT intended to reproduce the exact distribution, length or difficulty of AO3 questions
+found in an exam.
+A-level Biology contains substantial AO3 demand, so the quiz should provide sufficient breadth
+and quantity of AO3 practice rather than reducing the section to only a small number of
+questions.
+SOURCE-KNOWLEDGE RULE
+Use the supplied textbook page(s) as the biological knowledge base for the questions.
+Do not require substantial biological knowledge from other topics that is not contained in the
+supplied material.
+Students may be given new results, observations, data, experimental situations, scientific claims
+or other information related to the supplied biological knowledge and asked to analyse or
+evaluate them.
+The STIMULUS may therefore contain new evidence or an unfamiliar situation, but the
+BIOLOGICAL KNOWLEDGE needed to reason about it must come from the supplied textbook
+content.
+NUMBER AND STRUCTURE
+Create exactly 6 questions.
+Use approximately 2–3 stimuli across the six questions.
+DEFAULT STRUCTURE:
+- 3 stimuli
+- 2 questions based on each stimulus
+This is preferred because it gives students sufficient AO3 practice while allowing them to reason
+about a piece of evidence in more than one way.
+However, do not force exactly two questions onto every stimulus if a different 2–3 stimulus
+arrangement produces substantially better AO3 questions.
+Questions sharing a stimulus should normally assess DIFFERENT reasoning demands rather
+than asking essentially the same thing twice.
+For example, one question might ask the student to interpret the evidence and a second might
+ask them to explain the pattern, evaluate a conclusion or assess the method.
+WHAT THE QUESTIONS SHOULD ASSESS
+Questions should primarily assess one or more of the following AO3 types:
+1. INTERPRET EVIDENCE
+Identify patterns, trends, differences, relationships or other meaningful features in results or
+observations.
+2. EXPLAIN EVIDENCE
+Use relevant biological knowledge from the supplied textbook content to explain a pattern,
+difference or result shown in the stimulus.
+3. DRAW A CONCLUSION
+Use the evidence provided to reach an appropriate scientific conclusion.
+4. EVALUATE EVIDENCE OR A CLAIM
+Judge how well results support a conclusion, hypothesis, explanation or scientific claim.
+5. EVALUATE OR IMPROVE A METHOD
+Identify limitations in how evidence was obtained and explain how an investigation could be
+improved or how stronger evidence could be obtained.
+6. CONSIDER ALTERNATIVE EXPLANATIONS
+Recognise when evidence could have more than one explanation, when another variable may
+account for a result, or when the evidence is insufficient to establish causation.
+Not every quiz needs to contain every AO3 type.
+Choose the AO3 demands that are most appropriate to the biological content and available
+evidence.
+Across the six questions, aim for a MIX of AO3 reasoning rather than repeatedly assessing the
+same skill.
+THE AO3 GATE
+Every question must require meaningful use of information contained in its stimulus.
+Apply this test to EVERY proposed question:
+"If the stimulus were removed, could a well-prepared student answer essentially the same
+question from biological recall alone?"
+If YES, redesign the question.
+A question is not genuinely AO3 simply because a context, table, graph or experiment has been
+placed before it.
+The information in the stimulus must actually be necessary to answer the question fully.
+For example:
+WEAK:
+"Explain how competitive inhibition affects enzyme activity."
+This is primarily recall/application of biological knowledge.
+STRONGER:
+"The results show that the difference between the inhibited and uninhibited reaction becomes
+smaller as substrate concentration increases. Use the results and your knowledge of
+competitive inhibition to explain this pattern."
+Here the student must first engage with the evidence and then use biological knowledge to
+explain it.
+Similarly, questions that ask students to evaluate a claim must provide evidence against which
+that claim can genuinely be assessed.
+Questions about experimental methods must contain enough methodological information for the
+student to identify a real limitation or improvement rather than simply recalling generic
+experimental precautions.
+QUESTION DEMAND
+Keep the AO3 reasoning genuine, but keep the stimulus and wording controlled and accessible.
+The challenge should come primarily from WHAT THE STUDENT HAS TO DO WITH THE
+EVIDENCE, not from decoding an unnecessarily complicated stimulus.
+Questions should generally be short and focused.
+Most questions should be worth approximately 2–4 marks.
+Avoid turning the mini-quiz into a set of large exam-style extended-response questions.
+Simple description of a pattern or trend may be used as an introductory AO3 question, but
+should not dominate the quiz.
+Across the six questions, MOST questions should require students to go beyond describing
+what the evidence shows by doing something further with it, such as:
+- explaining the evidence;
+- evaluating it;
+- drawing and justifying a conclusion;
+- assessing a scientific claim;
+- considering the strength or limitations of the evidence;
+- identifying an alternative explanation;
+- or evaluating/improving how the evidence was obtained.
+Where an "explain" question is used, it should normally require the student to:
+1. identify or use a relevant feature of the stimulus; and
+2. use biological knowledge to account for that feature.
+Do not allow an explain question to become a standard AO2 question that merely happens to sit
+underneath a stimulus.
+STIMULUS DESIGN
+Use only stimuli that are necessary for the AO3 reasoning being assessed.
+Suitable stimulus formats include:
+- numerical results tables;
+- graphs;
+- short experimental descriptions;
+- observations;
+- scientific claims or conclusions;
+- hypotheses;
+- comparisons between treatments or conditions;
+- short sets of results;
+- combinations of the above.
+Keep stimuli:
+- minimal;
+- purposeful;
+- scientifically clear;
+- easy to read;
+- and no more complex than necessary for the AO3 skill being assessed.
+Do not add irrelevant contextual information simply to make a question appear more exam-like.
+Do not make all stimuli the same format where another format would assess the intended
+reasoning more effectively.
+Choose the format because it is the clearest way of presenting the evidence required by the
+question.
+DIAGRAM / IMAGE RULE
+DO NOT use biological diagrams, biological illustrations, generated biological images,
+apparatus diagrams or other image-based biological stimuli.
+Do not create questions that depend on the AI accurately generating or reproducing a biological
+diagram.
+If the biological idea could be tested using a diagram, redesign it using another stimulus format
+such as:
+- a graph;
+- a numerical table;
+- observations;
+- a short experimental description;
+- or a scientific claim.
+Graphs are permitted because they represent quantitative data rather than requiring generation
+of a biological illustration.
+GRAPH RULE
+Use a graph only when the graphical representation itself contributes meaningfully to the AO3
+reasoning.
+For example, a graph may be appropriate when students need to interpret:
+- a trend;
+- a plateau;
+- an optimum;
+- a change in gradient;
+- differences between curves;
+- or relationships between continuous variables.
+If students only need to compare a few exact numerical values, a table may be clearer and
+more efficient.
+Do not use a graph simply for visual variety.
+DATA AND NUMERACY
+Numerical data may be created where appropriate.
+Keep numbers simple enough that the task remains focused on biological AO3 reasoning rather
+than substantial mathematical processing.
+Students may:
+- compare values;
+- identify increases/decreases;
+- recognise patterns;
+- calculate simple differences or proportions where useful;
+- or use quantitative evidence to support a conclusion.
+Do not introduce substantial calculations unless the supplied textbook content specifically
+makes that mathematical skill relevant.
+SCIENTIFIC CLAIMS AND CONCLUSIONS
+Where useful, provide a short scientific claim, hypothesis or conclusion for the student to
+assess.
+Claims should be designed so that students must compare them with the supplied evidence.
+Where appropriate, evidence may:
+- support the claim;
+- partly support it;
+- contradict part of it;
+- or be insufficient to establish it fully.
+Avoid making every claim obviously completely correct or completely incorrect.
+Encourage scientifically cautious reasoning.
+Students should distinguish between:
+- evidence supporting a conclusion;
+- evidence being consistent with a conclusion;
+- and evidence proving that conclusion.
+Do not imply causation where the evidence only demonstrates an association.
+METHOD EVALUATION
+Method-evaluation questions should be specific to the investigation described.
+Avoid generic questions that can be answered with stock phrases such as:
+"repeat the experiment",
+"calculate a mean",
+or
+"control variables"
+without engaging with the actual evidence.
+If repeats are relevant, students should ideally explain WHY repeats would strengthen the
+evidence.
+If a confounding variable is relevant, students should identify the biologically meaningful variable
+and explain HOW it affects interpretation of the results.
+Method improvements should connect directly to a limitation in the evidence.
+QUESTION VARIETY
+Avoid producing six questions with essentially the same structure.
+A strong set might, for example, include:
+- interpretation of a pattern;
+- biological explanation of that pattern;
+- evaluation of a claim using numerical evidence;
+- explanation of a difference between treatments;
+- drawing a justified conclusion;
+- evaluation or improvement of an investigation.
+This is an example, not a compulsory template.
+Choose the combination that best fits the supplied biological content.
+STUDENT-FRIENDLY MARK SCHEME
+After the six questions, provide a mark scheme.
+For each question:
+- state the number of marks;
+- give clear bullet-point marking points;
+- make each marking point specific enough for a student to understand what earns the mark;
+- use biological terminology appropriate for A-level;
+- explicitly include use of stimulus evidence where the question requires it;
+- accept scientifically equivalent wording where appropriate.
+Where useful, include a brief "Reasoning to learn" statement explaining the AO3 thinking the
+student should take from the question.
+For example:
+Reasoning to learn: State the conclusion, then support it with specific evidence.
+Reasoning to learn: Start with what the results show, then use biological knowledge to explain
+the pattern.
+Reasoning to learn: Link the limitation in the method to how it affects the strength of the
+evidence.
+Do not make these statements repetitive or include them where they add little value.
+FINAL AO3 QUALITY CHECK
+Before producing the final output, check all six questions individually.
+For each question confirm internally that:
+1. The stimulus is NECESSARY to answer the question fully.
+2. The question is primarily AO3 rather than AO1 or AO2.
+3. The required biological knowledge is supported by the supplied textbook page(s).
+4. The stimulus is minimal and purposeful.
+5. The question does not depend on a biological diagram or generated biological image.
+6. The mark scheme requires engagement with the evidence where appropriate.
+7. The question is not simply duplicating the reasoning assessed by another question.
+8. The wording is accessible enough that stimulus complexity does not obscure the AO3 skill.
+Then check the quiz as a whole:
+- exactly 6 questions;
+- approximately 2–3 stimuli;
+- normally 3 stimuli with 2 questions per stimulus;
+- sufficient variety of AO3 reasoning;
+- most questions go beyond simple description of evidence;
+- no question is primarily AO2;
+- no biological diagrams or generated biological images are required.
+BETA / DEVELOPER SPECIFICATION
+For the current version, the AI does NOT need to create or render the final stimuli itself.
+Instead, after the student questions and mark scheme, provide a separate section titled:
+BETA / DEVELOPER SPECIFICATION
+For each stimulus, state:
+1. STIMULUS NUMBER
+2. QUESTIONS USING IT
+For example: Q1 and Q2.
+3. STIMULUS FORMAT
+For example:
+- graph;
+- numerical results table;
+- experimental method + results;
+- scientific claim + data.
+4. EXACT STIMULUS CONTENT
+Provide all information required for the stimulus to be generated later.
+For a table, provide the complete data.
+For a written stimulus, provide the exact wording.
+For a graph, provide a COMPLETE GRAPH GENERATION SPECIFICATION including:
+- graph type;
+- x-axis variable and units;
+- y-axis variable and units;
+- axis ranges where appropriate;
+- all numerical data points;
+- number and names of data series;
+- whether a legend is required;
+- and any other information required to reproduce the graph accurately.
+Do not include annotations that reveal the answer to the questions.
+5. WHY THE STIMULUS IS NECESSARY
+Briefly explain what information students must extract from the stimulus in order to answer the
+associated question(s).
+6. WHY THIS FORMAT WAS CHOSEN
+Briefly explain why a graph, table, written investigation or other format is the clearest and most
+efficient representation for the intended AO3 reasoning.
+Finally include an:
+AO3 TYPE CHECK
+List Q1-Q6 and identify the primary AO3 demand of each question.
+Also state:
+- total number of stimuli;
+- which questions share each stimulus;
+- stimulus formats used;
+- confirmation that every stimulus is necessary, minimal, purposeful and clear;
+- confirmation that every question requires information from its stimulus;
+- confirmation that no question is primarily AO2;
+- confirmation that no biological diagram, illustration or generated biological image is required.
+IMPORTANT DEVELOPMENT NOTE
+The current prompt is being tested in a workflow where the AI specifies the stimuli but does not
+need to produce/render all of them itself.
+In the final developer implementation, stimulus generation/rendering will be introduced
+separately.
+The developer should therefore use the BETA / DEVELOPER SPECIFICATION as the
+structured source from which graphs, tables and written stimuli can be generated accurately.
+The question-generation system should determine WHAT evidence is needed and WHY before
+the rendering system determines HOW that stimulus is presented.
+Do not weaken or simplify the AO3 reasoning merely because a stimulus will later need to be
+generated programmatically.
+OUTPUT ORDER
+Produce the output in this order:
+1. Title/topic
+2. Student instructions
+3. Stimulus 1 + associated question(s)
+4. Stimulus 2 + associated question(s)
+5. Stimulus 3 if required + associated question(s)
+6. Student-Friendly Mark Scheme
+7. BETA / DEVELOPER SPECIFICATION
+8. AO3 TYPE CHECK

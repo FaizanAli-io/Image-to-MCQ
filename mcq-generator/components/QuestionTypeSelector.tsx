@@ -1,6 +1,7 @@
 'use client';
 
 import { QuizConfig } from '@/lib/types';
+import { miniQuizCounts } from '@/lib/mini-quiz-config';
 
 interface QuestionTypeSelectorProps {
   config: QuizConfig;
@@ -13,7 +14,7 @@ export default function QuestionTypeSelector({ config, onChange }: QuestionTypeS
       case 'retrieval':
         return { icon: '📚', title: 'Retrieval Quiz', desc: '30 MCQs across 3 topics', color: 'blue' };
       case 'mini':
-        return { icon: '📝', title: 'Mini Quiz', desc: `${config.educationLevel === 'A-LEVEL' ? '24' : '19'} questions (AO1, AO2, AO3)`, color: 'purple' };
+        return { icon: '📝', title: 'Mini Quiz', desc: `${miniQuizCounts(config.educationLevel).total} questions (AO1, AO2, AO3)`, color: 'purple' };
       case 'assignment':
         return { icon: '📋', title: 'Assignment', desc: '4 exam questions (40 marks)', color: 'indigo' };
       case 'application':
@@ -37,7 +38,7 @@ export default function QuestionTypeSelector({ config, onChange }: QuestionTypeS
         </label>
         <select
           value={config.educationLevel}
-          onChange={(e) => onChange({ ...config, educationLevel: e.target.value as any })}
+          onChange={(e) => onChange({ ...config, educationLevel: e.target.value as QuizConfig['educationLevel'] })}
           className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 text-gray-900 font-medium cursor-pointer hover:border-gray-300"
         >
           <option value="GCSE">🎓 GCSE</option>
@@ -51,7 +52,7 @@ export default function QuestionTypeSelector({ config, onChange }: QuestionTypeS
         </label>
         <select
           value={config.quizType}
-          onChange={(e) => onChange({ ...config, quizType: e.target.value as any })}
+          onChange={(e) => onChange({ ...config, quizType: e.target.value as QuizConfig['quizType'] })}
           className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 text-gray-900 font-medium cursor-pointer hover:border-gray-300"
         >
           <option value="retrieval">📚 Retrieval Quiz</option>

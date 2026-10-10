@@ -1,3 +1,5 @@
+import type { QuizStimulus } from './stimulus-types';
+
 export interface GeneratedQuestion {
   text: string;
   type: "MULTIPLE_CHOICE" | "TRUE_FALSE" | "SHORT_ANSWER" | "LONG_ANSWER";
@@ -9,6 +11,10 @@ export interface GeneratedQuestion {
   questionNumber?: number; // Question number within the quiz
   aoLevel?: "AO1" | "AO2" | "AO3" | "REFLECTION"; // Assessment Objective level
   markScheme?: any; // Mark scheme data for Mini Quiz
+  stimuli?: QuizStimulus[]; // Resolved AO3 evidence; repeated IDs indicate shared evidence.
+  requiresStimulus?: boolean;
+  stimulusIds?: string[];
+  reviewStatus?: 'passed' | 'recommended' | 'unavailable'; // Quality feedback, not a rendering failure.
 }
 
 export interface TopicQuestions {
