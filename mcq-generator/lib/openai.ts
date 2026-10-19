@@ -1,3 +1,4 @@
+import { MINI_QUIZ_CLIENT_REQUIREMENTS } from './mini-quiz-client-requirements';
 import OpenAI from "openai";
 import { GeneratedQuestion } from "./types";
 import { getMiniQuizAO2Prompt } from "./mini-quiz-prompts";
@@ -176,7 +177,8 @@ Map the title to topicName, questions to questions, and the student-friendly mar
 For ALL sections, use one string ending in [1] for each distinct marking point. Derive maxMarks from the minimum complete answer, not a preset total. Do not invent points, duplicate an idea or artificially split reasoning to fill marks.
 ${section === 'ao1' ? 'Create short direct recall/understanding questions using only the visible page content. Use define, state, name, identify or describe. Set aoLevel=AO1, requiresStimulus=false, stimulusIds=[], ao3Review=null.' : ''}
 ${section === 'ao2' ? 'Set aoLevel=AO2, requiresStimulus=false, stimulusIds=[], ao3Review=null.' : ''}
-${section === 'ao3' ? AO3_JSON_INTEGRATION : ''}`;
+${section === 'ao3' ? AO3_JSON_INTEGRATION : ''}
+${MINI_QUIZ_CLIENT_REQUIREMENTS}`;
         const sectionPrompt = section === 'ao2' ? getMiniQuizAO2Prompt(educationLevel)
             : section === 'ao3' ? getMiniQuizAO3Prompt(educationLevel) : undefined;
         const response = await client.chat.completions.create({
@@ -247,12 +249,13 @@ ${section === 'ao3' ? AO3_JSON_INTEGRATION : ''}`;
         };
         reconcileMiniQuizMarks(result, educationLevel);
         const evidence = validateAO3Result(result, educationLevel);
-        const markScheme = { ao1: result.markScheme.ao1, ao2: result.markScheme.ao2, ao3: evidence.markScheme };
+        const publicMarks = (entries: MiniQuizDraft['markScheme']['ao1']) => entries.map(({ questionNumber, markPoints }) => ({ questionNumber, markPoints }));
+        const markScheme = { ao1: publicMarks(result.markScheme.ao1), ao2: publicMarks(result.markScheme.ao2), ao3: evidence.markScheme };
         // Private beta specifications and type checks stay out of student views/PDFs.
         return result.questions.map((q, index) => ({
             text: q.text, type: q.type, maxMarks: q.maxMarks,
             topic: result.topicName || "Mini Quiz", questionNumber: index + 1,
-            aoLevel: q.aoLevel, markScheme,
+            aoLevel: q.aoLevel, educationLevel, markScheme,
             ...(q.aoLevel === "AO3" ? {
                 requiresStimulus: evidence.idsByQuestion.get(index + 1)!.length > 0,
                 stimulusIds: evidence.idsByQuestion.get(index + 1)!,

@@ -20,14 +20,14 @@ test('shared A-level stimuli resolve without exposing private review fields', as
   assert.doesNotMatch(JSON.stringify(questions), /PRIVATE|ao3Review|developerNotes/);
 });
 
-test('GCSE permits inline evidence without forcing a visual', () => {
+test('GCSE requires a referenced stimulus even when the text includes a scenario', () => {
   const raw = fixture('GCSE');
   raw.questions[18].requiresStimulus = false;
   raw.questions[18].stimulusIds = [];
   raw.questions[18].text = 'A student samples only three areas near a path. Assess whether this supports a claim about the entire field.';
   raw.questions[18].ao3Review.inlineEvidence = 'Three areas near one path were sampled.';
   raw.stimuli.pop();
-  assert.deepEqual(validateAO3Result(raw, 'GCSE').idsByQuestion.get(19), []);
+  assert.throws(() => validateAO3Result(raw, 'GCSE'), /must use stimulus evidence/);
 });
 
 test('nullable optional fields from strict JSON output are accepted and normalized', () => {
@@ -85,19 +85,14 @@ test('AO3 totals are derived from awarded points rather than a repeated model to
   assert.equal(validateAO3Result(raw, 'A-LEVEL').marksByQuestion.get(15), 2);
 });
 
-test('repeated references and identical stimuli resolve once without guessing missing evidence', () => {
+test('repeated references resolve once; duplicate A-level stimuli cannot replace three distinct stimuli', () => {
   const raw = fixture();
   raw.questions[14].stimulusIds = [' rates ', 'rates'];
   assert.deepEqual(validateAO3Result(raw, 'A-LEVEL').idsByQuestion.get(15), ['rates']);
   raw.stimuli[2] = { ...structuredClone(raw.stimuli[0]), id: 'rates-copy' };
   raw.questions[18].stimulusIds = ['rates-copy'];
-  raw.questions[19].stimulusIds = ['rates', 'rates-copy'];
-  const result = validateAO3Result(raw, 'A-LEVEL');
-  assert.equal(result.stimuli.length, 2);
-  assert.deepEqual(result.idsByQuestion.get(19), ['rates']);
-  assert.deepEqual(result.idsByQuestion.get(20), ['rates']);
-  raw.questions[19].stimulusIds = ['unknown'];
-  assert.throws(() => validateAO3Result(raw, 'A-LEVEL'), /Q20 references missing stimuli: unknown/);
+  raw.questions[19].stimulusIds = ['rates-copy'];
+  assert.throws(() => validateAO3Result(raw, 'A-LEVEL'), /3 distinct/);
 });
 
 test('zero optional errors do not require an invented explanation; positive errors still do', () => {

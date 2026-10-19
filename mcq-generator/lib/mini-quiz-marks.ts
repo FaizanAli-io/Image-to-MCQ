@@ -4,6 +4,7 @@ export interface MiniQuizMarkEntry {
   questionNumber: number;
   markPoints: string[];
   reasoningToLearn?: string | null;
+  responseGroups?: number[][];
 }
 
 export interface MiniQuizDraft {
@@ -13,6 +14,7 @@ export interface MiniQuizDraft {
     type: 'SHORT_ANSWER' | 'LONG_ANSWER';
     aoLevel: 'AO1' | 'AO2' | 'AO3';
     maxMarks: number;
+    requestedResponses?: number | null;
   }[];
   markScheme: { ao1: MiniQuizMarkEntry[]; ao2: MiniQuizMarkEntry[]; ao3: MiniQuizMarkEntry[] };
 }
@@ -37,12 +39,35 @@ export function reconcileMiniQuizMarks(raw: MiniQuizDraft, level: MiniQuizLevel)
       }
       seen.add(number);
       const question = raw.questions[number - 1];
+      if (!Array.isArray(entry.markPoints) || entry.markPoints.length < 1 || entry.markPoints.length > 8) {
+        throw new Error(`Q${number}: missing or excessive marking points`);
+      }
+      const explicit = /\b(?:state|give|identify|name|suggest|describe|explain|list|select|provide|outline)\s+(?:any\s+)?(one|two|three|four|five|six|[1-6])\b/i.exec(question.text);
+      const words = ['one', 'two', 'three', 'four', 'five', 'six'];
+      const writtenCount = explicit ? (Number(explicit[1]) || words.indexOf(explicit[1].toLowerCase()) + 1) : null;
+      const requested = question.requestedResponses ?? writtenCount;
+      if (writtenCount && requested !== writtenCount) throw new Error(`Q${number}: requested response count contradicts question wording`);
+      if (requested != null) {
+        const groups = entry.responseGroups;
+        if (!Number.isInteger(requested) || requested < 1 || requested > 8 || !Array.isArray(groups)
+          || groups.length !== requested || groups.some(group => !Array.isArray(group) || !group.length)) {
+          throw new Error(`Q${number}: marking groups must match the ${requested} requested responses`);
+        }
+        const indices = groups.flat();
+        if (indices.length !== entry.markPoints.length || new Set(indices).size !== indices.length
+          || indices.some(index => !Number.isInteger(index) || index < 1 || index > entry.markPoints.length)) {
+          throw new Error(`Q${number}: every marking point must belong to exactly one requested response`);
+        }
+        if (requested > 1 && /\bexplain\b.*\beach\b|\bexplanation\s+for\s+each\b/i.test(question.text)
+          && groups.some(group => group.length < 2)) {
+          throw new Error(`Q${number}: each requested response needs its own explanation point`);
+        }
+      } else if (entry.responseGroups?.length) {
+        throw new Error(`Q${number}: marking response groups require a response count`);
+      }
       if (question.aoLevel !== section.toUpperCase() || !question.text?.trim()
         || !['SHORT_ANSWER', 'LONG_ANSWER'].includes(question.type)) {
         throw new Error(`Q${number}: invalid question or assessment objective`);
-      }
-      if (!Array.isArray(entry.markPoints) || entry.markPoints.length < 1 || entry.markPoints.length > 8) {
-        throw new Error(`Q${number}: missing or excessive marking points`);
       }
       const distinct = new Set<string>();
       entry.markPoints = entry.markPoints.map(point => {

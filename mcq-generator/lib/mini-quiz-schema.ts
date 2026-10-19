@@ -36,7 +36,8 @@ const stimulus: Schema = { anyOf: [
   graph,
   object({ ...base, kind: enumValue('diagram'), diagramType: enumValue('apparatus', 'geometry'), elements: list(diagramElement) }),
 ] };
-const markingEntry = object({ questionNumber: { type: 'integer' }, markPoints: list(string) });
+const responseGroups = list(list({ type: 'integer', minimum: 1, maximum: 8 }));
+const markingEntry = object({ questionNumber: { type: 'integer' }, markPoints: list(string), responseGroups });
 export const MINI_QUIZ_SCHEMA = object({
   topicName: string,
   developerSpecification: object({
@@ -48,6 +49,7 @@ export const MINI_QUIZ_SCHEMA = object({
     text: string,
     type: enumValue('SHORT_ANSWER', 'LONG_ANSWER'),
     maxMarks: { type: 'integer' },
+    requestedResponses: nullable({ type: 'integer', minimum: 1, maximum: 8 }),
     aoLevel: enumValue('AO1', 'AO2', 'AO3'),
     requiresStimulus: { type: 'boolean' },
     stimulusIds: { ...list(string), maxItems: 3 },
@@ -57,7 +59,7 @@ export const MINI_QUIZ_SCHEMA = object({
   markScheme: object({
     ao1: list(markingEntry),
     ao2: list(markingEntry),
-    ao3: list(object({ questionNumber: { type: 'integer' }, markPoints: list(string), reasoningToLearn: nullable(string) })),
+    ao3: list(object({ questionNumber: { type: 'integer' }, markPoints: list(string), responseGroups, reasoningToLearn: nullable(string) })),
   }),
 });
 
@@ -78,7 +80,7 @@ export function getMiniQuizSchema(level: 'GCSE' | 'A-LEVEL'): Schema {
       ...questionProperties,
       ao3Review: nullable(object({ primaryType: enumValue(...AO3_TYPES[level]), evidenceUse: string, inlineEvidence: nullable(string) })),
     }) },
-    stimuli: { ...list(allowedStimuli), minItems: level === 'GCSE' ? 0 : 2, maxItems: level === 'GCSE' ? 6 : 3 },
+    stimuli: { ...list(allowedStimuli), minItems: level === 'GCSE' ? 1 : 3, maxItems: level === 'GCSE' ? 3 : 3 },
   });
 }
 
@@ -93,6 +95,15 @@ export function getMiniQuizSectionSchema(level: 'GCSE' | 'A-LEVEL', section: 'ao
     topicName: string,
     questions: { ...full.questions, minItems: count, maxItems: count, items: object({
       ...questionProperties, aoLevel: enumValue(section.toUpperCase()),
+      ...(section === 'ao3' ? {
+        requiresStimulus: { type: 'boolean', enum: [true] },
+        stimulusIds: { ...list(string), minItems: 1, maxItems: 3 },
+        ao3Review: (questionProperties.ao3Review.anyOf as Schema[])[0],
+      } : {
+        requiresStimulus: { type: 'boolean', enum: [false] },
+        stimulusIds: { ...list(string), maxItems: 0 },
+        ao3Review: { type: 'null' },
+      }),
     }) },
     markScheme: { ...marking, minItems: count, maxItems: count },
   });

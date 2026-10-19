@@ -1,58 +1,9 @@
+import { drawScientificLine, takeScientificLine } from './scientific-pdf';
+import { miniQuizTitle, type MiniQuizPDFOptions } from './mini-quiz-export';
 import jsPDF from 'jspdf';
 import { GeneratedQuestion } from './types';
 import { layoutStimulus } from './stimulus-layout';
 import { drawStimulusPanel } from './stimulus-pdf';
-
-/**
- * Enhanced text rendering with superscripts, subscripts, and symbols
- */
-function renderFormattedText(
-  doc: jsPDF, 
-  text: string, 
-  x: number, 
-  y: number, 
-  maxWidth: number,
-  fontSize: number = 11
-): { height: number; lines: number } {
-  const originalFontSize = fontSize;
-  const superSubSize = fontSize * 0.7; // 70% of original size
-  const lineHeight = fontSize * 0.8;
-  
-  // Split text into manageable chunks for line wrapping
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let currentLine = '';
-  
-  // Simple line wrapping (we'll enhance this for formatted text)
-  words.forEach(word => {
-    const testLine = currentLine + (currentLine ? ' ' : '') + word;
-    const testWidth = doc.getTextWidth(testLine);
-    
-    if (testWidth > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
-    }
-  });
-  
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-  
-  // Render each line with formatting
-  let currentY = y;
-  
-  lines.forEach(line => {
-    renderLineWithFormatting(doc, line, x, currentY, originalFontSize, superSubSize);
-    currentY += lineHeight;
-  });
-  
-  return {
-    height: lines.length * lineHeight,
-    lines: lines.length
-  };
-}
 
 /**
  * Render a single line with superscripts, subscripts, and symbols
@@ -252,7 +203,7 @@ function preprocessScientificText(text: string): string {
   return processed;
 }
 
-// Retrieval uses the same word wrapping as renderFormattedText, but measures
+// Retrieval measures
 // complete question blocks and checks page space before drawing every line.
 function retrievalLines(doc: jsPDF, text: string, width: number): string[] {
   // Helvetica supports the micro sign, but not Greek mu or the Unicode minus.
@@ -288,7 +239,7 @@ function drawRetrievalLines(doc: jsPDF, lines: string[], x: number, y: number, m
   return y;
 }
 
-export function generatePDF(questions: GeneratedQuestion[], title: string = "Generated Quiz"): jsPDF {
+export function generatePDF(questions: GeneratedQuestion[], title: string = "Generated Quiz", options: MiniQuizPDFOptions = {}): jsPDF {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -301,18 +252,34 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
   
   if (isMiniQuiz) {
     // Mini Quiz Format
-    const topicName = questions[0]?.topic || "Mini Quiz";
+
     
     // Read the generated section labels, including existing saved quizzes.
     const ao1Count = questions.filter(q => q.aoLevel === 'AO1').length;
     const ao2Count = questions.filter(q => q.aoLevel === 'AO2').length;
     const ao3Count = questions.filter(q => q.aoLevel === 'AO3').length;
 
-    // Title
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${topicName} – Mini Quiz`, margin, yPosition);
-    yPosition += lineHeight * 2;
+    const contentWidth = pageWidth - margin * 2;
+    let floatingImage: { page: number; bottom: number; left: number } | undefined;
+    const ensureRoom = (height: number) => {
+      if (yPosition + height > pageHeight - margin) { doc.addPage(); yPosition = margin; }
+    };
+    const writeAO3Text = (text: string, bold = false, indent = 0, size = 11) => {
+      let rest = text;
+      do {
+        ensureRoom(size * 0.55);
+        const besideImage = floatingImage && floatingImage.page === doc.getNumberOfPages() && yPosition - 4 < floatingImage.bottom;
+        const width = besideImage ? floatingImage!.left - margin - indent - 7 : contentWidth - indent;
+        const [line, remaining] = takeScientificLine(doc, rest, width, size, bold);
+        drawScientificLine(doc, line, margin + indent, yPosition, size, bold);
+        yPosition += size * 0.55;
+        rest = remaining;
+      } while (rest);
+    };
+    const pdfTitle = miniQuizTitle(questions, options.educationLevel);
+    doc.setProperties({ title: pdfTitle });
+    writeAO3Text(pdfTitle, true, 0, 16);
+    yPosition += 6;
     if (questions.some(q => q.reviewStatus === 'recommended' || q.reviewStatus === 'unavailable')) {
       doc.setFontSize(10);
       doc.text('DRAFT - Review AO3 questions and answers before use.', margin, yPosition);
@@ -334,16 +301,9 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
         yPosition = margin;
       }
 
-      const questionText = `${index + 1}. ${preprocessScientificText(question.text)} [${question.maxMarks} marks]`;
-      const questionResult = renderFormattedText(
-        doc, 
-        questionText, 
-        margin, 
-        yPosition, 
-        pageWidth - margin * 2,
-        11
-      );
-      yPosition += questionResult.height + 5;
+      const questionText = `${index + 1}. ${question.text} [${question.maxMarks} marks]`;
+      writeAO3Text(questionText);
+      yPosition += 5;
     });
 
     yPosition += lineHeight;
@@ -368,50 +328,15 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
         yPosition = margin;
       }
 
-      const questionText = `${index + ao1Count + 1}. ${preprocessScientificText(question.text)} [${question.maxMarks} marks]`;
-      const questionResult = renderFormattedText(
-        doc, 
-        questionText, 
-        margin, 
-        yPosition, 
-        pageWidth - margin * 2,
-        11
-      );
-      yPosition += questionResult.height + 5;
+      const questionText = `${index + ao1Count + 1}. ${question.text} [${question.maxMarks} marks]`;
+      writeAO3Text(questionText);
+      yPosition += 5;
     });
 
     yPosition += lineHeight;
 
-    // AO3 Section
-    if (yPosition > pageHeight - 60) {
-      doc.addPage();
-      yPosition = margin;
-    }
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`AO3 – Analyse, Interpret & Evaluate (${ao3Count} questions)`, margin, yPosition);
-    yPosition += lineHeight * 1.5;
-
     // Draw shared evidence once in the document, then reference its actual pages.
     const stimulusPages = new Map<string, { first: number; last: number; figure: number }>();
-    const contentWidth = pageWidth - margin * 2;
-    const ensureRoom = (height: number) => {
-      if (yPosition + height > pageHeight - margin) {
-        doc.addPage();
-        yPosition = margin;
-      }
-    };
-    const writeAO3Text = (text: string, bold = false, indent = 0) => {
-      doc.setFont('helvetica', bold ? 'bold' : 'normal');
-      doc.setFontSize(11);
-      const lines: string[] = doc.splitTextToSize(text, contentWidth - indent);
-      for (const line of lines) {
-        ensureRoom(7);
-        doc.text(line, margin + indent, yPosition);
-        yPosition += 6;
-      }
-    };
     questions.slice(ao1Count + ao2Count, ao1Count + ao2Count + ao3Count).forEach((question, index) => {
       const number = question.questionNumber || index + ao1Count + ao2Count + 1;
       doc.setFontSize(11);
@@ -421,6 +346,14 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
       const evidenceHeight = evidence.reduce((sum, e) => stimulusPages.has(e.stimulus.id)
         ? sum + 12
         : sum + e.panels.reduce((h, p) => h + p.height * contentWidth / p.width + 16, 0), 0);
+      if (index === 0) {
+        const firstPanel = evidence[0]?.panels[0];
+        const firstBlock = firstPanel ? firstPanel.height * contentWidth / firstPanel.width + 18 + Math.min(questionHeight, 30) : questionHeight;
+        const group = evidenceHeight + questionHeight;
+        ensureRoom((group < pageHeight - margin * 2 - 20 ? group : firstBlock) + 20);
+        writeAO3Text(`AO3 – Analyse, Interpret & Evaluate (${ao3Count} questions)`, true, 0, 12);
+        yPosition += 4;
+      }
       // Keep ordinary-sized stimulus/question groups together.
       if (evidenceHeight + questionHeight < pageHeight - margin * 2) ensureRoom(evidenceHeight + questionHeight);
       else ensureRoom(Math.min(questionHeight + 20, 60));
@@ -472,11 +405,17 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
         ['ao3', 'AO3 – Analyse, Interpret & Evaluate'],
       ] as const;
       for (const [key, heading] of sections) {
-        ensureRoom(35);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text(heading, margin, yPosition);
-        yPosition += lineHeight * 1.5;
+        const image = options.images?.[key];
+        if (image) {
+          const properties = doc.getImageProperties(image);
+          const width = 55, height = width * properties.height / properties.width;
+          ensureRoom(height + 8);
+          const top = yPosition - 4, left = pageWidth - margin - width;
+          doc.addImage(image, 'PNG', left, top, width, height, key, 'FAST');
+          floatingImage = { page: doc.getNumberOfPages(), bottom: top + height, left };
+        } else { ensureRoom(35); }
+        writeAO3Text(heading, true, 0, 12);
+        yPosition += 4;
         const entries: { questionNumber: number; markPoints: string[]; reasoningToLearn?: string }[] = markScheme[key] || [];
         for (const item of entries) {
           ensureRoom(25);
@@ -491,6 +430,8 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
           }
           yPosition += 6;
         }
+        if (floatingImage?.page === doc.getNumberOfPages()) yPosition = Math.max(yPosition, floatingImage.bottom + 6);
+        floatingImage = undefined;
         yPosition += lineHeight;
       }
     }

@@ -127,12 +127,15 @@ for (const [level, count] of [['GCSE', 19], ['A-LEVEL', 20]]) {
       const content = payload.messages[0].content;
       assert.deepEqual(content.filter(part => part.type === 'image_url').map(part => part.image_url.url), urls);
       assert.match(content[0].text, /BOTH pages/);
+      assert.match(content[0].text, /ADDITIONAL CLIENT ACCEPTANCE REQUIREMENTS/);
+      assert.match(content[0].text, /below, near or above the optimum/);
       const expectedCount = section === 'ao1' ? (level === 'GCSE' ? 10 : 8) : section === 'ao2' ? 6 : (level === 'GCSE' ? 3 : 6);
       assert.match(content[0].text, new RegExp(`EXACTLY ${expectedCount} questions`));
       if (section === 'ao2') assert.equal(content[1].text, loadModule('lib/mini-quiz-prompts.ts').getMiniQuizAO2Prompt(level));
       if (section === 'ao3') assert.equal(content[1].text, loadModule('lib/mini-quiz-ao3-prompts.ts').getMiniQuizAO3Prompt(level));
     }
     assert.equal(questions.length, count);
+    assert.ok(questions.every(q => q.educationLevel === level));
     assert.equal(questions.filter(q => q.aoLevel === 'AO2').length, 6);
     assert.equal(questions.filter(q => q.aoLevel === 'AO1').length, level === 'GCSE' ? 10 : 8);
     assert.deepEqual(questions[0].markScheme.ao3.map(m => m.questionNumber), level === 'GCSE' ? [17, 18, 19] : [15, 16, 17, 18, 19, 20]);

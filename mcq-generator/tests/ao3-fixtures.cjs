@@ -24,7 +24,7 @@ function fixture(level = 'A-LEVEL') {
     const aoLevel = i < ao1 ? 'AO1' : i < ao1 + ao2 ? 'AO2' : 'AO3';
     const n = i - ao1 - ao2;
     const question = { text: `${aoLevel === 'AO3' ? 'Use the supplied evidence to assess the stated comparison' : 'Question about the revised content'} (${i + 1}).`, type: 'SHORT_ANSWER', aoLevel, maxMarks: 2 };
-    if (aoLevel === 'AO3') Object.assign(question, { requiresStimulus: true, stimulusIds: [['rates'], ['results'], ['method']][level === 'GCSE' ? n : Math.floor(n / 2)], ao3Review: { primaryType: 'interpret_evidence', evidenceUse: 'PRIVATE REVIEW NOTE: compare the actual supplied measurements.' } });
+    if (aoLevel === 'AO3') Object.assign(question, { requiresStimulus: true, stimulusIds: [['rates'], ['results'], ['method']][level === 'GCSE' ? n : Math.floor(n / 2)], ao3Review: { primaryType: (level === 'GCSE' ? ['interpret_evidence','explain_evidence','judge_claim'] : ['interpret_evidence','explain_evidence','draw_conclusion','evaluate_claim','evaluate_method','alternative_explanations'])[n], evidenceUse: 'PRIVATE REVIEW NOTE: compare the actual supplied measurements.' } });
     markScheme[aoLevel.toLowerCase()].push({ questionNumber: i + 1, markPoints: ['First distinct evidence point [1]', 'Second distinct evidence point [1]'], ...(aoLevel === 'AO3' ? { reasoningToLearn: 'Support the comparison with specific evidence.' } : {}) });
     return question;
   });

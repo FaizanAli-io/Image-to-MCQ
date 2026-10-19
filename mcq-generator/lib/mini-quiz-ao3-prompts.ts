@@ -609,8 +609,8 @@ Each AO3 question must include:
   "requiresStimulus": true,
   "stimulusIds": ["s1"],
   "ao3Review": {"primaryType": "interpret_evidence", "evidenceUse": "Private explanation of how evidence is necessary"}
-Set requiresStimulus to false and stimulusIds to [] ONLY for GCSE questions whose full, concise evidence is already supplied directly in question.text. In that case also provide ao3Review.inlineEvidence describing that supplied evidence. This must still require AO3 reasoning; false does not permit recall questions.
-For A-level, every AO3 question must reference evidence: use 2-3 shared stimuli total, normally 3 with 2 questions each. Questions sharing evidence should normally be adjacent. Do not duplicate a stimulus under another ID.
+Every AO3 question, at both levels, must have requiresStimulus=true and at least one referenced stimulus. Put concise written evidence in a text stimulus rather than bypassing the evidence contract with inlineEvidence.
+For A-level, every AO3 question must reference evidence: use 3 shared stimuli total, with 2 questions each. Questions sharing evidence should normally be adjacent. Do not duplicate a stimulus under another ID.
 GCSE primaryType values: interpret_evidence, explain_evidence, predict_infer, evaluate_investigation, judge_claim.
 A-level primaryType values: interpret_evidence, explain_evidence, draw_conclusion, evaluate_claim, evaluate_method, alternative_explanations.
 Do not place taxonomy labels, review notes, solutions, stimulus-generation instructions, or BETA headings in question text, stimulus titles, captions or descriptions. The UI renders evidence before questions. Do not include raw graph data as prose when interpretation of the graph is the task.

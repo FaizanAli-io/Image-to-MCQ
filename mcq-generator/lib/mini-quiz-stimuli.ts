@@ -122,7 +122,7 @@ export function validateAO3Result(value: unknown, level: 'GCSE' | 'A-LEVEL'): AO
   const result = object(value, 'quiz');
   const { total, firstAO3: first } = miniQuizCounts(level);
   const questions = array(result.questions, 'questions', total, total);
-  const parsed = array(result.stimuli, 'stimuli', level === 'GCSE' ? 0 : 2, level === 'GCSE' ? 6 : 3).map(s => parseStimulus(s, level));
+  const parsed = array(result.stimuli, 'stimuli', level === 'GCSE' ? 1 : 3, 3).map(s => parseStimulus(s, level));
   const stimuli: QuizStimulus[] = [];
   const aliases = new Map<string, string>();
   const contents = new Map<string, string>();
@@ -141,7 +141,8 @@ export function validateAO3Result(value: unknown, level: 'GCSE' | 'A-LEVEL'): AO
       stimuli.push(stimulus);
     }
   }
-  if (level === 'A-LEVEL' && stimuli.length < 2) fail('A-level needs 2-3 distinct shared stimuli; reuse their IDs instead of duplicating evidence');
+  if (level === 'A-LEVEL' && stimuli.length !== 3) fail('A-level needs 3 distinct shared stimuli');
+  const types: string[] = [];
   const ids = new Set(stimuli.map(s => s.id));
   const idsByQuestion = new Map<number, string[]>();
   const allowedTypes: readonly string[] = AO3_TYPES[level];
@@ -160,14 +161,18 @@ export function validateAO3Result(value: unknown, level: 'GCSE' | 'A-LEVEL'): AO
     const missing = refs.filter(id => !ids.has(id));
     if (missing.length) fail(`Q${expected} references missing stimuli: ${missing.join(', ')}. Available IDs: ${[...ids].join(', ')}`);
     if (typeof q.requiresStimulus !== 'boolean' || q.requiresStimulus !== (refs.length > 0)) fail(`Q${expected}.requiresStimulus must match stimulusIds`);
-    if (level === 'A-LEVEL' && !refs.length) fail(`A-level Q${expected} must use shared stimulus evidence`);
+    if (!refs.length) fail(`Q${expected} must use stimulus evidence`);
     const review = object(q.ao3Review, `Q${expected}.ao3Review`);
-    choice(review.primaryType, allowedTypes, 'AO3 type');
+    types.push(choice(review.primaryType, allowedTypes, 'AO3 type'));
     text(review.evidenceUse, 'evidenceUse', 1000);
     if (!refs.length) text(review.inlineEvidence, 'inlineEvidence describing evidence supplied in question text', 1000);
     idsByQuestion.set(expected, refs);
   });
   for (const id of ids) if (![...idsByQuestion.values()].some(refs => refs.includes(id))) fail(`unused stimulus ${id}`);
+  if (level === 'A-LEVEL') {
+    if (new Set(types).size < 3 || types.filter(t => t === 'interpret_evidence').length > 2) fail('A-level AO3 needs at least 3 reasoning types and at most 2 interpretation questions');
+    for (const id of ids) if ([...idsByQuestion.values()].filter(refs => refs.includes(id)).length !== 2) fail('Each A-level stimulus must support exactly two questions');
+  }
   const entries = array(object(result.markScheme, 'markScheme').ao3, 'AO3 mark scheme', total - first + 1, total - first + 1);
   const seen = new Set<number>();
   const marksByQuestion = new Map<number, number>();

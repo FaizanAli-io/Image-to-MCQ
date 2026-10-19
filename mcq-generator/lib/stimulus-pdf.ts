@@ -1,3 +1,4 @@
+import { drawScientificLine } from './scientific-pdf';
 import type jsPDF from 'jspdf';
 import type { StimulusPanel } from './stimulus-layout';
 
@@ -11,7 +12,7 @@ export function drawStimulusPanel(doc: jsPDF, panel: StimulusPanel, x: number, y
     if (item.type === 'text') {
       doc.setFont('helvetica', item.bold ? 'bold' : 'normal');
       doc.setFontSize(item.size * scale * 72 / 25.4);
-      doc.text(item.text, sx, sy, item.rotate ? { angle: 90 } : undefined);
+      drawScientificLine(doc, item.text, sx, sy, item.size * scale * 72 / 25.4, !!item.bold, item.rotate ? 90 : 0);
     } else if (item.type === 'line') {
       if (item.dash) doc.setLineDashPattern([scale * 4, scale * 4], 0);
       doc.line(sx, sy, x + item.x2 * scale, y + item.y2 * scale);

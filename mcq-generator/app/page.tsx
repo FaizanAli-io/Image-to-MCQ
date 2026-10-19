@@ -7,6 +7,7 @@ import QuestionDisplay from '@/components/QuestionDisplay';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { GeneratedQuestion, QuizConfig } from '@/lib/types';
 import { generatePDF, generateAnswerKey } from '@/lib/pdf-utils';
+import { loadMiniQuizImages, miniQuizFilename } from '@/lib/mini-quiz-export';
 import { Download, FileText } from 'lucide-react';
 
 export default function Home() {
@@ -96,9 +97,16 @@ export default function Home() {
     }
   };
 
-  const handleDownloadPDF = () => {
-    const pdf = generatePDF(questions, `${config.educationLevel} ${config.quizType} Quiz`);
-    pdf.save(needsAO3Review ? 'quiz-draft.pdf' : 'quiz.pdf');
+  const handleDownloadPDF = async () => {
+    try {
+      const mini = questions.some(q => q.aoLevel);
+      const level = questions[0]?.educationLevel || config.educationLevel;
+      const images = mini ? await loadMiniQuizImages() : undefined;
+      const pdf = generatePDF(questions, `${level} ${config.quizType} Quiz`, { educationLevel: level, images });
+      pdf.save(mini ? miniQuizFilename(questions, level) : needsAO3Review ? 'quiz-draft.pdf' : 'quiz.pdf');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not download the quiz PDF.');
+    }
   };
 
   const handleDownloadAnswerKey = () => {

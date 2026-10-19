@@ -7,6 +7,7 @@ export interface GeneratedQuestion {
   correctAnswer?: number;
   maxMarks?: number;
   image?: string;
+  educationLevel?: 'GCSE' | 'A-LEVEL';
   topic?: string; // Topic label (e.g., "Topic A: Cell Biology")
   questionNumber?: number; // Question number within the quiz
   aoLevel?: "AO1" | "AO2" | "AO3" | "REFLECTION"; // Assessment Objective level

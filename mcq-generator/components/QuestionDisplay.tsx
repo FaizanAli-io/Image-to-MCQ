@@ -1,5 +1,6 @@
 'use client';
 
+import { scientificText } from '@/lib/scientific-text';
 import { GeneratedQuestion } from '@/lib/types';
 import QuizStimulus from './QuizStimulus';
 
@@ -44,7 +45,7 @@ export default function QuestionDisplay({ questions }: QuestionDisplayProps) {
                 ? <div key={stimulus.id} id={`stimulus-${stimulus.id}`} className="scroll-mt-24"><QuizStimulus stimulus={stimulus} /></div>
                 : <p key={stimulus.id} className="mb-3 text-sm text-gray-700">Use <a href={`#stimulus-${stimulus.id}`} className="text-indigo-700 underline">{stimulus.title}</a> shown with Question {firstIndex + 1}.</p>;
             })}
-            <p className="text-gray-800 leading-relaxed mb-4 text-base whitespace-pre-line">{question.text}</p>
+            <p className="text-gray-800 leading-relaxed mb-4 text-base whitespace-pre-line">{question.aoLevel ? scientificText(question.text) : question.text}</p>
             
             {question.type === "MULTIPLE_CHOICE" && question.options && (
               <div className="space-y-2.5">
