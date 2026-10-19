@@ -4,40 +4,42 @@ import { miniQuizCounts } from './mini-quiz-config';
 import { AO3_TYPES } from './ao3-taxonomy';
 type Schema = Record<string, unknown>;
 const string: Schema = { type: 'string' };
+const text = (maxLength: number): Schema => ({ type: 'string', minLength: 1, maxLength });
 const number: Schema = { type: 'number' };
 const nullable = (schema: Schema): Schema => ({ anyOf: [schema, { type: 'null' }] });
 const list = (items: Schema): Schema => ({ type: 'array', items });
 const enumValue = (...values: string[]): Schema => ({ type: 'string', enum: values });
 const object = (properties: Record<string, Schema>): Schema => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
-const axis = object({ label: string, units: string, min: number, max: number, tickStep: number });
+const axis = object({ label: text(70), units: { type: 'string', maxLength: 30 }, min: number, max: number, tickStep: number });
 const trendPoint = object({ x: number, y: number });
-const base = { id: string, title: string, context: nullable(string) };
+const base = { id: { ...text(30), pattern: '^[a-zA-Z0-9_-]+$' }, title: text(100), context: nullable(text(1000)) };
 // Error bars and their explanation are one contract: positive errors cannot be
 // emitted with a null explanation. No-error graphs use null (or zero) errors.
-const graph = { anyOf: [false, true].map(withErrors => object({
-  ...base, kind: enumValue('graph'), graphType: enumValue('line', 'scatter', 'bar'),
+const graph = { anyOf: ['line', 'scatter', 'bar'].flatMap(graphType => [false, true].map(withErrors => object({
+  ...base, kind: enumValue('graph'), graphType: enumValue(graphType),
   xAxis: axis, yAxis: axis,
   series: { ...list(object({
-    name: string,
+    name: text(65),
     points: { ...list(object({ x: number, y: number, yError: nullable(withErrors ? { type: 'number', minimum: 0 } : { type: 'number', enum: [0] }) })), minItems: 2, maxItems: 60 },
-    trendPoints: nullable({ ...list(trendPoint), minItems: 2, maxItems: 60 }),
+    trendPoints: graphType === 'scatter' ? nullable({ ...list(trendPoint), minItems: 2, maxItems: 60 }) : { type: 'null' },
   })), minItems: 1, maxItems: 4 },
-  categories: nullable({ ...list(string), minItems: 2, maxItems: 8 }),
+  categories: graphType === 'bar' ? { ...list(text(45)), minItems: 2, maxItems: 8 } : { type: 'null' },
   errorDescription: withErrors ? { type: 'string', minLength: 1, maxLength: 160 } : { type: 'null' },
-})) };
+}))) };
 const diagramElement: Schema = { anyOf: [
   object({ type: enumValue('rect', 'ellipse'), x: number, y: number, width: number, height: number, fill: enumValue('none', 'light', 'dark') }),
   object({ type: enumValue('line', 'arrow'), x: number, y: number, x2: number, y2: number }),
   object({ type: enumValue('label'), x: number, y: number, text: string }),
 ] };
 const stimulus: Schema = { anyOf: [
-  object({ ...base, kind: enumValue('text'), paragraphs: list(string) }),
-  object({ ...base, kind: enumValue('table'), columns: list(string), rows: list(list(string)) }),
+  object({ ...base, kind: enumValue('text'), paragraphs: { ...list(text(1000)), minItems: 1, maxItems: 8 } }),
+  object({ ...base, kind: enumValue('table'), columns: { ...list(text(90)), minItems: 2, maxItems: 5 }, rows: { ...list({ ...list(text(160)), minItems: 2, maxItems: 5 }), minItems: 1, maxItems: 16 } }),
   graph,
   object({ ...base, kind: enumValue('diagram'), diagramType: enumValue('apparatus', 'geometry'), elements: list(diagramElement) }),
 ] };
 const responseGroups = list(list({ type: 'integer', minimum: 1, maximum: 8 }));
-const markingEntry = object({ questionNumber: { type: 'integer' }, markPoints: list(string), responseGroups });
+const markPoints = { ...list({ ...text(600), pattern: '\\S.*\\[1\\]\\s*$' }), minItems: 1, maxItems: 8 };
+const markingEntry = object({ questionNumber: { type: 'integer' }, markPoints, responseGroups });
 export const MINI_QUIZ_SCHEMA = object({
   topicName: string,
   developerSpecification: object({
@@ -46,9 +48,9 @@ export const MINI_QUIZ_SCHEMA = object({
     typeCheck: list(object({ questionNumber: { type: "integer" }, primaryType: string, justification: string })),
   }),
   questions: list(object({
-    text: string,
+    text: text(1600),
     type: enumValue('SHORT_ANSWER', 'LONG_ANSWER'),
-    maxMarks: { type: 'integer' },
+    maxMarks: { type: 'integer', minimum: 1, maximum: 8 },
     requestedResponses: nullable({ type: 'integer', minimum: 1, maximum: 8 }),
     aoLevel: enumValue('AO1', 'AO2', 'AO3'),
     requiresStimulus: { type: 'boolean' },
@@ -59,7 +61,7 @@ export const MINI_QUIZ_SCHEMA = object({
   markScheme: object({
     ao1: list(markingEntry),
     ao2: list(markingEntry),
-    ao3: list(object({ questionNumber: { type: 'integer' }, markPoints: list(string), responseGroups, reasoningToLearn: nullable(string) })),
+    ao3: list(object({ questionNumber: { type: 'integer' }, markPoints, responseGroups, reasoningToLearn: nullable(text(400)) })),
   }),
 });
 
@@ -78,7 +80,7 @@ export function getMiniQuizSchema(level: 'GCSE' | 'A-LEVEL'): Schema {
     ...properties,
     questions: { ...properties.questions, minItems: total, maxItems: total, items: object({
       ...questionProperties,
-      ao3Review: nullable(object({ primaryType: enumValue(...AO3_TYPES[level]), evidenceUse: string, inlineEvidence: nullable(string) })),
+      ao3Review: nullable(object({ primaryType: enumValue(...AO3_TYPES[level]), evidenceUse: text(1000), inlineEvidence: nullable(text(1000)) })),
     }) },
     stimuli: { ...list(allowedStimuli), minItems: level === 'GCSE' ? 1 : 3, maxItems: level === 'GCSE' ? 3 : 3 },
   });

@@ -416,13 +416,14 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
         } else { ensureRoom(35); }
         writeAO3Text(heading, true, 0, 12);
         yPosition += 4;
-        const entries: { questionNumber: number; markPoints: string[]; reasoningToLearn?: string }[] = markScheme[key] || [];
+        const entries: { questionNumber: number; markPoints: string[]; reasoningToLearn?: string; markingGuidance?: string }[] = markScheme[key] || [];
         for (const item of entries) {
           ensureRoom(25);
           const question = questions.find(q => q.questionNumber === item.questionNumber);
           writeAO3Text(`Q${item.questionNumber}${question ? ` (${question.maxMarks} marks)` : ''}`, true);
           yPosition += 1;
           // Paginate every point in all three sections, so long answers cannot disappear off-page.
+          if (item.markingGuidance) writeAO3Text(item.markingGuidance, false, 5);
           item.markPoints?.forEach(point => writeAO3Text(`- ${point}`, false, 5));
           if (item.reasoningToLearn) {
             yPosition += 2;

@@ -269,7 +269,7 @@ export default function Home() {
                 <h3 className="font-bold text-red-900 mb-1">Something Went Wrong</h3>
                 <p className="text-red-700 text-sm mb-3">{error}</p>
                 <p className="text-xs text-red-600">{errorCode === 'INVALID_AO3_EVIDENCE'
-                  ? 'The generated AO3 evidence could not be validated after an automatic repair. Try generating again using the same pages.'
+                  ? 'The generated quiz could not be completed. If this repeats, share the message above with support.'
                   : 'Check the message above and try again. If the problem continues, share the error with support.'}</p>
               </div>
             </div>

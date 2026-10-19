@@ -4,6 +4,7 @@ import { GeneratedQuestion } from "./types";
 import { getMiniQuizAO2Prompt } from "./mini-quiz-prompts";
 import { getMiniQuizAO3Prompt, AO3_JSON_INTEGRATION } from "./mini-quiz-ao3-prompts";
 import { validateAO3Result } from "./mini-quiz-stimuli";
+import { normalizeMiniQuizStimulus } from './mini-quiz-normalize';
 import { getMiniQuizSectionSchema } from "./mini-quiz-schema";
 import { MiniQuizEvidenceError } from "./mini-quiz-errors";
 import { miniQuizCounts } from "./mini-quiz-config";
@@ -244,12 +245,12 @@ ${MINI_QUIZ_CLIENT_REQUIREMENTS}`;
         const result: MiniQuizDraft & { stimuli: unknown[] } = {
             topicName: drafts[0].topicName,
             questions: drafts.flatMap(draft => draft.questions),
-            stimuli: drafts[2].stimuli || [],
+            stimuli: (drafts[2].stimuli || []).map(normalizeMiniQuizStimulus),
             markScheme: { ao1: markSchemeSections[0], ao2: markSchemeSections[1], ao3: markSchemeSections[2] },
         };
         reconcileMiniQuizMarks(result, educationLevel);
         const evidence = validateAO3Result(result, educationLevel);
-        const publicMarks = (entries: MiniQuizDraft['markScheme']['ao1']) => entries.map(({ questionNumber, markPoints }) => ({ questionNumber, markPoints }));
+        const publicMarks = (entries: MiniQuizDraft['markScheme']['ao1']) => entries.map(({ questionNumber, markPoints, markingGuidance }) => ({ questionNumber, markPoints, ...(markingGuidance ? { markingGuidance } : {}) }));
         const markScheme = { ao1: publicMarks(result.markScheme.ao1), ao2: publicMarks(result.markScheme.ao2), ao3: evidence.markScheme };
         // Private beta specifications and type checks stay out of student views/PDFs.
         return result.questions.map((q, index) => ({

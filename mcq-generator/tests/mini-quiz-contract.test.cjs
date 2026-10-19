@@ -54,7 +54,7 @@ test('an invalid evidence response fails locally without AI review or correction
       return { choices: [{ message: { content: JSON.stringify(sectionFixture(raw, payload.response_format.json_schema.name.slice(-3))) }, finish_reason: 'stop' }] };
     } } };
   } });
-  await assert.rejects(generateMiniQuiz('test-only', ['image'], 'A-LEVEL'), /missing or invalid/);
+  await assert.rejects(generateMiniQuiz('test-only', ['image'], 'A-LEVEL'), /references missing stimuli/);
   assert.equal(calls, 3);
 });
 
@@ -64,7 +64,7 @@ test('truncated JSON cannot become an exported quiz', async () => {
       message: { content: JSON.stringify(fixture()) }, finish_reason: 'length',
     }] }) } };
   } });
-  await assert.rejects(generateMiniQuiz('test-only', ['image'], 'A-LEVEL'), /missing or invalid/);
+  await assert.rejects(generateMiniQuiz('test-only', ['image'], 'A-LEVEL'), /incomplete or inconsistent/);
 });
 
 test('local question prefixes are removed while numbers in the scenario remain intact', async () => {

@@ -5,6 +5,7 @@ export interface MiniQuizMarkEntry {
   markPoints: string[];
   reasoningToLearn?: string | null;
   responseGroups?: number[][];
+  markingGuidance?: string;
 }
 
 export interface MiniQuizDraft {
@@ -47,7 +48,21 @@ export function reconcileMiniQuizMarks(raw: MiniQuizDraft, level: MiniQuizLevel)
       const writtenCount = explicit ? (Number(explicit[1]) || words.indexOf(explicit[1].toLowerCase()) + 1) : null;
       const requested = question.requestedResponses ?? writtenCount;
       if (writtenCount && requested !== writtenCount) throw new Error(`Q${number}: requested response count contradicts question wording`);
-      if (requested != null) {
+      // Direct AO1 lists can legitimately supply more acceptable alternatives
+      // than students must name. Do not count every alternative cumulatively.
+      // Explanation/application questions still require complete response groups.
+      const alternatives = section === 'ao1' && writtenCount !== null && requested === writtenCount
+        && question.maxMarks === requested && entry.markPoints.length > requested
+        && /^\s*(?:name|state|give|identify|list)\s+(?:any\s+)?(?:one|two|three|four|five|six|[1-6])\b/i.test(question.text)
+        && !/\b(?:explain|explanation|describe|justify|reason|why|how)\b/i.test(question.text);
+      if (alternatives) {
+        entry.markingGuidance = `Award 1 mark for each distinct correct response, up to ${requested} marks. Accept any ${requested} of the alternatives below; do not award all alternatives cumulatively.`;
+      } else if (requested != null) {
+        // A single requested explanation can award several points. Its grouping
+        // is unambiguous; do not reject it over omitted bookkeeping metadata.
+        if (!entry.responseGroups?.length && requested === 1) {
+          entry.responseGroups = [entry.markPoints.map((_, index) => index + 1)];
+        }
         const groups = entry.responseGroups;
         if (!Number.isInteger(requested) || requested < 1 || requested > 8 || !Array.isArray(groups)
           || groups.length !== requested || groups.some(group => !Array.isArray(group) || !group.length)) {
@@ -79,7 +94,7 @@ export function reconcileMiniQuizMarks(raw: MiniQuizDraft, level: MiniQuizLevel)
         distinct.add(key);
         return point.trim();
       });
-      question.maxMarks = entry.markPoints.length;
+      question.maxMarks = alternatives ? requested! : entry.markPoints.length;
     }
     entries.sort((a, b) => a.questionNumber - b.questionNumber);
     offset += counts[section];
