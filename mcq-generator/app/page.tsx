@@ -6,9 +6,10 @@ import QuestionTypeSelector from '@/components/QuestionTypeSelector';
 import QuestionDisplay from '@/components/QuestionDisplay';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { GeneratedQuestion, QuizConfig } from '@/lib/types';
-import { generatePDF, generateAnswerKey } from '@/lib/pdf-utils';
+import { generatePDF, generateRetrievalPDF } from '@/lib/pdf-utils';
 import { loadMiniQuizImages, miniQuizFilename } from '@/lib/mini-quiz-export';
-import { Download, FileText } from 'lucide-react';
+import { retrievalQuizFilename } from '@/lib/retrieval-export';
+import { Download } from 'lucide-react';
 
 export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<File[] | File | null>(null);
@@ -16,7 +17,7 @@ export default function Home() {
     questionCount: 10,
     questionType: 'MULTIPLE_CHOICE',
     educationLevel: 'GCSE',
-    quizType: 'retrieval',
+    quizType: 'mini',
   });
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -69,7 +70,7 @@ export default function Home() {
         }
 
         const data = await response.json();
-        setQuestions(data.questions);
+        setQuestions(data.questions.map((q: GeneratedQuestion) => ({ ...q, educationLevel: config.educationLevel })));
       } else if (config.quizType === 'mini') {
         // Use both pages together in one Mini Quiz request
         const formData = new FormData();
@@ -102,16 +103,13 @@ export default function Home() {
       const mini = questions.some(q => q.aoLevel);
       const level = questions[0]?.educationLevel || config.educationLevel;
       const images = mini ? await loadMiniQuizImages() : undefined;
-      const pdf = generatePDF(questions, `${level} ${config.quizType} Quiz`, { educationLevel: level, images });
-      pdf.save(mini ? miniQuizFilename(questions, level) : needsAO3Review ? 'quiz-draft.pdf' : 'quiz.pdf');
+      const pdf = mini
+        ? generatePDF(questions, `${level} ${config.quizType} Quiz`, { educationLevel: level, images })
+        : generateRetrievalPDF(questions, `${level} retrieval Quiz`);
+      pdf.save(mini ? miniQuizFilename(questions, level) : retrievalQuizFilename(questions, level));
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Could not download the quiz PDF.');
     }
-  };
-
-  const handleDownloadAnswerKey = () => {
-    const pdf = generateAnswerKey(questions);
-    pdf.save('answer-key.pdf');
   };
 
   return (
@@ -316,15 +314,6 @@ export default function Home() {
                     <Download className="w-4 h-4" />
                     {needsAO3Review ? 'Download Draft Quiz PDF' : 'Download Quiz PDF'}
                   </button>
-                  {config.quizType === 'retrieval' && (
-                    <button
-                      onClick={handleDownloadAnswerKey}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all duration-150 shadow-md hover:shadow-lg hover:-translate-y-0.5"
-                    >
-                      <FileText className="w-4 h-4" />
-                      Download Answer Key
-                    </button>
-                  )}
                 </div>
               </div>
             </div>

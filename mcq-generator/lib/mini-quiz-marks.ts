@@ -58,9 +58,10 @@ export function reconcileMiniQuizMarks(raw: MiniQuizDraft, level: MiniQuizLevel)
       if (alternatives) {
         entry.markingGuidance = `Award 1 mark for each distinct correct response, up to ${requested} marks. Accept any ${requested} of the alternatives below; do not award all alternatives cumulatively.`;
       } else if (requested != null) {
-        // A single requested explanation can award several points. Its grouping
-        // is unambiguous; do not reject it over omitted bookkeeping metadata.
-        if (!entry.responseGroups?.length && requested === 1) {
+        // One requested response has exactly one group containing all its points.
+        // Rebuild redundant metadata even if the model supplied several groups,
+        // empty groups, repeated indices or an incomplete group.
+        if (requested === 1) {
           entry.responseGroups = [entry.markPoints.map((_, index) => index + 1)];
         }
         const groups = entry.responseGroups;

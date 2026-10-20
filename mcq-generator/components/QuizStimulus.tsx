@@ -2,10 +2,10 @@ import { scientificText } from '@/lib/scientific-text';
 import type { QuizStimulus as Stimulus } from '@/lib/stimulus-types';
 import { layoutStimulus } from '@/lib/stimulus-layout';
 
-export default function QuizStimulus({ stimulus }: { stimulus: Stimulus }) {
+export default function QuizStimulus({ stimulus, number }: { stimulus: Stimulus; number?: number }) {
   return (
-    <figure className="my-4 rounded-lg border border-gray-300 bg-white p-3 text-gray-900">
-      <figcaption className="mb-2 font-semibold">{stimulus.title}</figcaption>
+    <figure className="my-4 rounded-lg border-2 border-gray-600 bg-white p-4 text-gray-900">
+      <figcaption className="mb-2 font-semibold">{number ? `Stimulus ${number}: ` : ''}{scientificText(stimulus.title)}</figcaption>
       {layoutStimulus(stimulus).map((panel, index) => (
         <svg key={index} viewBox={`0 0 ${panel.width} ${panel.height}`} className="block h-auto w-full" role="img" aria-label={`${stimulus.title}${index ? ' continued' : ''}`}>
           {panel.items.map((item, i) => {

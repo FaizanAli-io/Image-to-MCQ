@@ -1,5 +1,6 @@
 import { drawScientificLine, takeScientificLine } from './scientific-pdf';
 import { miniQuizTitle, type MiniQuizPDFOptions } from './mini-quiz-export';
+import { miniQuizQuestionText } from './mini-quiz-presentation';
 import jsPDF from 'jspdf';
 import { GeneratedQuestion } from './types';
 import { layoutStimulus } from './stimulus-layout';
@@ -301,7 +302,7 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
         yPosition = margin;
       }
 
-      const questionText = `${index + 1}. ${question.text} [${question.maxMarks} marks]`;
+      const questionText = `${index + 1}. ${miniQuizQuestionText(question.text)}`;
       writeAO3Text(questionText);
       yPosition += 5;
     });
@@ -328,7 +329,7 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
         yPosition = margin;
       }
 
-      const questionText = `${index + ao1Count + 1}. ${question.text} [${question.maxMarks} marks]`;
+      const questionText = `${index + ao1Count + 1}. ${miniQuizQuestionText(question.text)}`;
       writeAO3Text(questionText);
       yPosition += 5;
     });
@@ -340,12 +341,12 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
     questions.slice(ao1Count + ao2Count, ao1Count + ao2Count + ao3Count).forEach((question, index) => {
       const number = question.questionNumber || index + ao1Count + ao2Count + 1;
       doc.setFontSize(11);
-      const questionText = `${number}. ${question.text} [${question.maxMarks} marks]`;
+      const questionText = `${number}. ${miniQuizQuestionText(question.text)}`;
       const questionHeight = doc.splitTextToSize(questionText, contentWidth).length * 6 + 8;
       const evidence = (question.stimuli || []).map(stimulus => ({ stimulus, panels: layoutStimulus(stimulus) }));
       const evidenceHeight = evidence.reduce((sum, e) => stimulusPages.has(e.stimulus.id)
         ? sum + 12
-        : sum + e.panels.reduce((h, p) => h + p.height * contentWidth / p.width + 16, 0), 0);
+        : sum + e.panels.reduce((h, p) => h + p.height * (contentWidth - 8) / p.width + 24, 0), 0);
       if (index === 0) {
         const firstPanel = evidence[0]?.panels[0];
         const firstBlock = firstPanel ? firstPanel.height * contentWidth / firstPanel.width + 18 + Math.min(questionHeight, 30) : questionHeight;
@@ -355,8 +356,10 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
         yPosition += 4;
       }
       // Keep ordinary-sized stimulus/question groups together.
-      if (evidenceHeight + questionHeight < pageHeight - margin * 2) ensureRoom(evidenceHeight + questionHeight);
-      else ensureRoom(Math.min(questionHeight + 20, 60));
+      if (index > 0) {
+        if (evidenceHeight + questionHeight < pageHeight - margin * 2) ensureRoom(evidenceHeight + questionHeight);
+        else ensureRoom(Math.min(questionHeight + 20, 60));
+      }
       for (const { stimulus, panels } of evidence) {
         const previous = stimulusPages.get(stimulus.id);
         if (previous) {
@@ -365,19 +368,39 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
           continue;
         }
         const figure = stimulusPages.size + 1;
-        let lastPanelPage: number | undefined;
-        panels.forEach((panel, panelIndex) => {
-          const height = panel.height * contentWidth / panel.width;
-          const reserve = panelIndex === panels.length - 1 ? Math.min(questionHeight, 30) : 0;
-          ensureRoom(height + 18 + reserve);
-          if (lastPanelPage !== doc.getNumberOfPages()) {
-            writeAO3Text(`Stimulus ${figure}: ${stimulus.title}${panelIndex ? ' (continued)' : ''}`, true);
-            yPosition += 2;
+        const innerWidth = contentWidth - 8;
+        const panelGroups: typeof panels[] = [];
+        let groupHeight = 0;
+        panels.forEach(panel => {
+          const height = panel.height * innerWidth / panel.width;
+          if (!panelGroups.length || groupHeight + height > pageHeight - margin * 2 - 36) {
+            panelGroups.push([]);
+            groupHeight = 0;
           }
-          yPosition += drawStimulusPanel(doc, panel, margin, yPosition, contentWidth) + 8;
-          lastPanelPage = doc.getNumberOfPages();
+          panelGroups[panelGroups.length - 1].push(panel);
+          groupHeight += height;
+        });
+        panelGroups.forEach((group, panelIndex) => {
+          const height = group.reduce((sum, panel) => sum + panel.height * innerWidth / panel.width, 0);
+          const titleLines: string[] = [];
+          let remaining = `Stimulus ${figure}: ${stimulus.title}${panelIndex ? ' (continued)' : ''}`;
+          do {
+            const [line, rest] = takeScientificLine(doc, remaining, innerWidth, 11, true);
+            titleLines.push(line);
+            remaining = rest;
+          } while (remaining);
+          const boxHeight = height + titleLines.length * 6 + 12;
+          const reserve = panelIndex === panelGroups.length - 1 ? Math.min(questionHeight, 30) : 0;
+          ensureRoom(boxHeight + 8 + reserve);
+          doc.setDrawColor('#555555'); doc.setLineWidth(0.4);
+          doc.rect(margin, yPosition, contentWidth, boxHeight);
+          titleLines.forEach((line, i) => drawScientificLine(doc, line, margin + 4, yPosition + 8 + i * 6, 11, true));
+          let panelY = yPosition + 8 + titleLines.length * 6;
+          group.forEach(panel => { panelY += drawStimulusPanel(doc, panel, margin + 4, panelY, innerWidth); });
+          yPosition += boxHeight + 8;
           stimulusPages.set(stimulus.id, { first: stimulusPages.get(stimulus.id)?.first ?? doc.getNumberOfPages(), last: doc.getNumberOfPages(), figure });
         });
+        writeAO3Text(`Refer to Stimulus ${figure}.`);
       }
       writeAO3Text(questionText);
       yPosition += 8;
@@ -556,7 +579,17 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
 }
 
 export function generateAnswerKey(questions: GeneratedQuestion[]): jsPDF {
-  const doc = new jsPDF();
+  return appendAnswerKey(new jsPDF(), questions);
+}
+
+/** Reuse the existing question and answer layouts without changing answer mapping. */
+export function generateRetrievalPDF(questions: GeneratedQuestion[], title?: string): jsPDF {
+  const doc = generatePDF(questions, title);
+  doc.addPage();
+  return appendAnswerKey(doc, questions);
+}
+
+function appendAnswerKey(doc: jsPDF, questions: GeneratedQuestion[]): jsPDF {
   const margin = 20;
   const lineHeight = 7;
   let yPosition = margin;

@@ -3,12 +3,17 @@
 import { scientificText } from '@/lib/scientific-text';
 import { GeneratedQuestion } from '@/lib/types';
 import QuizStimulus from './QuizStimulus';
+import { miniQuizQuestionText } from '@/lib/mini-quiz-presentation';
 
 interface QuestionDisplayProps {
   questions: GeneratedQuestion[];
 }
 
 export default function QuestionDisplay({ questions }: QuestionDisplayProps) {
+  const stimulusNumbers = new Map<string, number>();
+  questions.forEach(q => q.stimuli?.forEach(s => {
+    if (!stimulusNumbers.has(s.id)) stimulusNumbers.set(s.id, stimulusNumbers.size + 1);
+  }));
   return (
     <div className="space-y-4">
       {questions.map((question, index) => (
@@ -29,7 +34,7 @@ export default function QuestionDisplay({ questions }: QuestionDisplayProps) {
                     {question.type.replace(/_/g, ' ')}
                   </span>
                 )}
-                {question.maxMarks && (
+                {!question.aoLevel && question.maxMarks && (
                   <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">
                     {question.maxMarks} {question.maxMarks === 1 ? 'mark' : 'marks'}
                   </span>
@@ -42,10 +47,11 @@ export default function QuestionDisplay({ questions }: QuestionDisplayProps) {
             {question.stimuli?.map(stimulus => {
               const firstIndex = questions.findIndex(q => q.stimuli?.some(s => s.id === stimulus.id));
               return firstIndex === index
-                ? <div key={stimulus.id} id={`stimulus-${stimulus.id}`} className="scroll-mt-24"><QuizStimulus stimulus={stimulus} /></div>
-                : <p key={stimulus.id} className="mb-3 text-sm text-gray-700">Use <a href={`#stimulus-${stimulus.id}`} className="text-indigo-700 underline">{stimulus.title}</a> shown with Question {firstIndex + 1}.</p>;
+                ? <div key={stimulus.id} id={`stimulus-${stimulus.id}`} className="scroll-mt-24"><QuizStimulus stimulus={stimulus} number={stimulusNumbers.get(stimulus.id)} /></div>
+                : null;
             })}
-            <p className="text-gray-800 leading-relaxed mb-4 text-base whitespace-pre-line">{question.aoLevel ? scientificText(question.text) : question.text}</p>
+            {question.stimuli?.map(stimulus => <p key={stimulus.id} className="mb-3 text-sm text-gray-700">Refer to <a href={`#stimulus-${stimulus.id}`} className="text-indigo-700 underline">Stimulus {stimulusNumbers.get(stimulus.id)}</a>.</p>)}
+            <p className="text-gray-800 leading-relaxed mb-4 text-base whitespace-pre-line">{question.aoLevel ? scientificText(miniQuizQuestionText(question.text)) : question.text}</p>
             
             {question.type === "MULTIPLE_CHOICE" && question.options && (
               <div className="space-y-2.5">
