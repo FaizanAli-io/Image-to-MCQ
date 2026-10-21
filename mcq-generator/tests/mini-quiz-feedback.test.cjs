@@ -20,15 +20,17 @@ test('two variables and their explanations award two response groups, never thre
   entry.responseGroups.push([5, 6]);
   assert.throws(() => reconcileMiniQuizMarks(raw, 'A-LEVEL'), /2 requested responses/);
   raw.questions[8].requestedResponses = 3;
-  assert.throws(() => reconcileMiniQuizMarks(raw, 'A-LEVEL'), /contradicts question wording/);
+  assert.throws(() => reconcileMiniQuizMarks(raw, 'A-LEVEL'), /2 requested responses/);
 });
 
-test('response groups cannot omit or award a point twice', () => {
+test('duplicate response indices are rebuilt when there is exactly one point per answer', () => {
   const raw = fixture();
   raw.questions[8].text = 'State two variables.';
   raw.questions[8].requestedResponses = 2;
   raw.markScheme.ao2[0].responseGroups = [[1], [1]];
-  assert.throws(() => reconcileMiniQuizMarks(raw, 'A-LEVEL'), /exactly one/);
+  reconcileMiniQuizMarks(raw, 'A-LEVEL');
+  assert.deepEqual(raw.markScheme.ao2[0].responseGroups, [[1], [2]]);
+  assert.equal(raw.questions[8].maxMarks, 2);
 });
 
 test('GCSE conceptual AO3 cannot use an unreferenced changed-condition scenario', () => {
