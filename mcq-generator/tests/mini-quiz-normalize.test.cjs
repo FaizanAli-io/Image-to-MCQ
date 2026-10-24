@@ -105,6 +105,6 @@ test('AO1 any-two alternatives retain a two-mark cap and explicit guidance in th
   const { getDocumentProxy, extractText } = require('unpdf');
   const pdf = await getDocumentProxy(new Uint8Array(generatePDF(questions).output('arraybuffer')));
   const { text } = await extractText(pdf, { mergePages: true });
-  assert.match(text, /Q7 \(2 marks\)/);
+  assert.match(text, /Q7\s+2 marks/);
   assert.match(text, /Accept any 2/);
 });

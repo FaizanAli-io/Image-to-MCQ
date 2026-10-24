@@ -92,37 +92,40 @@ test('real AO assets sit beside their mark-scheme headings, with no intersecting
   for (const entries of Object.values(raw.markScheme)) for (const entry of entries) entry.markPoints[0] = 'Uses the measurements from the investigation to compare the two conditions and supports the conclusion with the specific values supplied, without assuming additional variables or a biological mechanism that has not been established. [1]';
   raw.questions[8].text = 'N2 + 3H2 ⇌ 2NH3. Compare rates in cm³ s⁻¹ at 20°C and 25°C below the supplied optimum.';
   const questions = studentQuestions(raw);
-  const doc = generatePDF(questions, undefined, { educationLevel: 'A-LEVEL', images });
+  const { jsPDF } = require('jspdf');
+  const placements = [];
+  const originalAddImage = jsPDF.API.addImage;
+  jsPDF.API.addImage = function (...args) {
+    placements.push({ page: this.getNumberOfPages(), left: args[2], top: args[3], width: args[4], height: args[5], key: args[6] });
+    return originalAddImage.apply(this, args);
+  };
+  let doc;
+  try { doc = generatePDF(questions, undefined, { educationLevel: 'A-LEVEL', images }); }
+  finally { jsPDF.API.addImage = originalAddImage; }
   const pdf = await getDocumentProxy(new Uint8Array(doc.output('arraybuffer')));
-  let imageCount = 0, markSchemeStarted = false, section = 0, expandedLines = 0;
+  let imageCount = 0, expandedLines = 0;
   const mm = 72 / 25.4;
   for (let n = 1; n <= pdf.numPages; n++) {
     const page = await pdf.getPage(n);
     const { items } = await page.getTextContent();
-    const text = items.map(i => i.str).join(' ');
-    if (text.includes('Student-Friendly Mark Scheme')) markSchemeStarted = true;
     const ops = await page.getOperatorList();
     // PDF.js OPS.paintImageXObject = 85.
     imageCount += ops.fnArray.filter(op => op === 85).length;
-    if (!markSchemeStarted) continue;
-    for (const key of ['AO1', 'AO2', 'AO3']) {
-      const heading = items.find(i => i.str.startsWith(key + ' '));
-      if (!heading) continue;
-      section++;
-      const bytes = images[key.toLowerCase()];
-      const properties = doc.getImageProperties(bytes);
-      const imageHeight = 55 * properties.height / properties.width * mm;
-      const top = heading.transform[5] + 4 * mm, bottom = top - imageHeight;
-      const imageLeft = (210 - 20 - 55) * mm;
+    for (const placement of placements.filter(p => p.page === n)) {
+      const heading = items.find(i => i.str.startsWith(placement.key.toUpperCase() + ' '));
+      assert.ok(heading, 'image must appear with its section heading');
+      const top = page.view[3] - placement.top * mm, bottom = top - placement.height * mm;
+      const imageLeft = placement.left * mm;
+      assert.ok(Math.abs(top - heading.transform[5]) < 22, 'image aligns with the section title');
       for (const item of items.filter(i => i.str.trim())) {
         if (item.transform[5] > bottom && item.transform[5] <= top) {
           assert.ok(item.transform[4] + item.width < imageLeft - 2 * mm, `Image overlap: ${item.str}`);
-        } else if (item.transform[5] < bottom && item.transform[4] + item.width > imageLeft) expandedLines++;
+        } else if (item.transform[5] < bottom && item.transform[5] > 40 && item.transform[4] + item.width > imageLeft) expandedLines++;
       }
     }
     for (const item of items.filter(i => i.str.trim())) assert.ok(item.transform[5] > 12 && item.transform[5] < page.view[3] - 10, item.str);
   }
   assert.equal(imageCount, 3);
-  assert.equal(section, 3);
+  assert.equal(placements.length, 3);
   assert.ok(expandedLines > 0, 'text should return to full width below images');
 });

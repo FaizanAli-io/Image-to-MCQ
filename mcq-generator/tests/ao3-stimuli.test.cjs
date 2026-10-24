@@ -199,7 +199,7 @@ test('PDF preserves evidence, units, marks, shared references and page bounds', 
       for (let i = 0; i < items.length; i++) {
         if (/^Q\d+(?: \(\d+ marks\))?$/.test(items[i].str)) {
           const next = items.slice(i + 1).find(x => x.str.includes('First distinct'));
-          assert.ok(next && items[i].transform[5] - next.transform[5] >= 16, 'marking point must be below its heading');
+          assert.ok(next && next.transform[4] > items[i].transform[4] + 30, 'marking points must sit beside the number badge without overlap');
         }
       }
     }
@@ -207,7 +207,7 @@ test('PDF preserves evidence, units, marks, shared references and page bounds', 
     assert.match(text, /Time \(s\)/);
     assert.match(text, /standard deviation/);
     assert.match(text, /Condition 16/);
-    assert.match(text, level === 'GCSE' ? /Q17 \(2 marks\)/ : /Q15 \(2 marks\)/);
+    assert.match(text, level === 'GCSE' ? /Q17\s+2 marks/ : /Q15\s+2 marks/);
     assert.match(text, /Reasoning to learn/);
     assert.doesNotMatch(text, /PRIVATE REVIEW|STIMULUS TO BE INSERTED/);
   }
