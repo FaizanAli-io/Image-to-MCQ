@@ -220,10 +220,10 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
             {multipleImages && !isProcessing && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 max-w-md">
                 <p className="text-xs text-blue-800 font-medium">
-                  {imageLabels === 'topics' ? 'Retrieval Quiz requires 3 images:' : 'Mini Quiz accepts 1 or 2 pages:'}
+                  {imageLabels === 'topics' ? 'Retrieval Quiz requires 3 images:' : 'Mini Quiz accepts 1 to 10 pages:'}
                 </p>
                 <p className="text-xs text-blue-700 mt-1">
-                  {imageLabels === 'topics' ? 'Topic A / Topic B / Topic C' : 'Both pages are used together for one quiz'}
+                  {imageLabels === 'topics' ? 'Topic A / Topic B / Topic C' : 'All pages are used together for one quiz'}
                 </p>
               </div>
             )}

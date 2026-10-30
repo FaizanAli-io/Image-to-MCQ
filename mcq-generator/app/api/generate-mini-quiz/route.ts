@@ -18,9 +18,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Education level must be GCSE or A-LEVEL' }, { status: 400 });
     }
 
-    if (entries.length < 1 || entries.length > 2) {
+    if (entries.length < 1 || entries.length > 10) {
       return NextResponse.json(
-        { error: 'Mini Quiz requires 1 or 2 pages for the same quiz' },
+        { error: 'Mini Quiz requires 1 to 10 pages for the same quiz' },
         { status: 400 }
       );
     }

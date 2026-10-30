@@ -34,7 +34,8 @@ test('mini layout adapts to different lengths with complete content and separate
     assert.ok(start > 0);
     pages.forEach((p, i) => {
       assert.ok(p.text.includes(`Page ${i < start ? i + 1 : i - start + 1} of ${i < start ? start : pages.length - start}`));
-      assert.doesNotMatch(p.text, /Past Paper Pal|Want more questions|HI TUTORING|pastpaperpal\.co/);
+      assert.match(p.text, /Past Paper Pal/);
+      assert.doesNotMatch(p.text, /Want more questions|HI TUTORING|pastpaperpal\.co/);
     });
     for (let n = 1; n <= count; n++) {
       const questionPage = pages.slice(0, start).filter(p => p.text.includes(`Start${n} `));

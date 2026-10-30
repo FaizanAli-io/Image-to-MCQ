@@ -46,7 +46,7 @@ test('mini quiz upload and generation flow', async (t) => {
   const previousKey = process.env.OPENAI_API_KEY;
   process.env.OPENAI_API_KEY = 'test-only';
   try {
-    for (const [count, field] of [[1, 'images'], [2, 'images'], [1, 'image']]) {
+    for (const [count, field] of [[1, 'images'], [2, 'images'], [10, 'images'], [1, 'image']]) {
       await t.test(`${count} page(s) using ${field} produce one quiz`, async () => {
         const { POST, calls } = routeHarness();
         const result = await POST(request(count, field));
@@ -57,7 +57,7 @@ test('mini quiz upload and generation flow', async (t) => {
         assert.deepEqual(calls.deleted, calls.uploads);
       });
     }
-    for (const count of [0, 3]) {
+    for (const count of [0, 11]) {
       await t.test(`rejects ${count} pages before uploading`, async () => {
         const { POST, calls } = routeHarness();
         assert.equal((await POST(request(count))).status, 400);
@@ -105,7 +105,7 @@ test('mini quiz upload and generation flow', async (t) => {
 });
 
 for (const [level, count] of [['GCSE', 19], ['A-LEVEL', 20]]) {
-  test(`${level}: both images reach all three parallel section requests with exact prompts`, async () => {
+  test(`${level}: all ten images reach all three parallel section requests with exact prompts`, async () => {
     const requests = [];
     const { generateMiniQuiz } = loadModule('lib/openai.ts', {
       './mini-quiz-prompts': loadModule('lib/mini-quiz-prompts.ts', {}),
@@ -119,14 +119,14 @@ for (const [level, count] of [['GCSE', 19], ['A-LEVEL', 20]]) {
         } } };
       },
     });
-    const urls = ['https://example.test/one.png', 'https://example.test/two.png'];
+    const urls = Array.from({ length: 10 }, (_, i) => `https://example.test/page-${i + 1}.png`);
     const questions = await generateMiniQuiz('test-only', urls, level);
     assert.equal(requests.length, 3);
     for (const payload of requests) {
       const section = payload.response_format.json_schema.name.slice(-3);
       const content = payload.messages[0].content;
       assert.deepEqual(content.filter(part => part.type === 'image_url').map(part => part.image_url.url), urls);
-      assert.match(content[0].text, /BOTH pages/);
+      assert.match(content[0].text, /ALL supplied pages/);
       assert.match(content[0].text, /ADDITIONAL CLIENT ACCEPTANCE REQUIREMENTS/);
       assert.match(content[0].text, /below, near or above the optimum/);
       const expectedCount = section === 'ao1' ? (level === 'GCSE' ? 10 : 8) : section === 'ao2' ? 6 : (level === 'GCSE' ? 3 : 6);

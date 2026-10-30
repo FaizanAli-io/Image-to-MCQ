@@ -30,7 +30,7 @@ export default function Home() {
   const handleGenerate = async () => {
     setErrorCode('');
     if (!uploadedFiles) {
-      setError(isRetrieval ? 'Please upload 3 images (one for each topic)' : 'Please upload 1 or 2 pages for one mini quiz');
+      setError(isRetrieval ? 'Please upload 3 images (one for each topic)' : 'Please upload 1 to 10 pages for one mini quiz');
       return;
     }
 
@@ -41,8 +41,8 @@ export default function Home() {
       return;
     }
 
-    if (!isRetrieval && (filesArray.length < 1 || filesArray.length > 2)) {
-      setError('Mini Quiz requires 1 or 2 pages for the same quiz');
+    if (!isRetrieval && (filesArray.length < 1 || filesArray.length > 10)) {
+      setError('Mini Quiz requires 1 to 10 pages for the same quiz');
       return;
     }
 
@@ -184,7 +184,7 @@ export default function Home() {
                 key={config.quizType}
                 multipleImages
                 imageLabels={isRetrieval ? 'topics' : 'pages'}
-                maxImages={isRetrieval ? 3 : 2}
+                maxImages={isRetrieval ? 3 : 10}
               />
             </div>
             {isRetrieval && (
@@ -209,7 +209,7 @@ export default function Home() {
                   <div>
                     <p className="font-bold mb-2">Mini Quiz Requirements:</p>
                     <div className="space-y-1 text-sm opacity-95">
-                      <p>• Upload <strong>1 or 2 pages</strong> of your study material for one quiz</p>
+                      <p>• Upload <strong>1 to 10 pages</strong> of your study material for one quiz</p>
                       <p>• Complete questions to practice revised content</p>
                       <p>• Self mark to assess how effective your revision was</p>
                     </div>

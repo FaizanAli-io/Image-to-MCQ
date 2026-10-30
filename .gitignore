@@ -1,2 +1,5 @@
 .tmp-tools/
 .tmp-qa/
+
+# Local extraction diagnostics and deployment bundles
+/artifacts/

@@ -156,11 +156,11 @@ export async function generateStructuredQuestions(
 // }
 
 // ============================================================================
-// MINI QUIZ WORKFLOW - One or two pages, one parallel generation per AO section
+// MINI QUIZ WORKFLOW - One to ten pages, one parallel generation per AO section
 // ============================================================================
 
 /**
- * Generate a Mini Quiz from one or two pages combined into one quiz
+ * Generate a Mini Quiz from one to ten pages combined into one quiz
  */
 export async function generateMiniQuiz(
     apiKey: string,
@@ -171,7 +171,7 @@ export async function generateMiniQuiz(
     const counts = miniQuizCounts(educationLevel);
     const sections = ['ao1', 'ao2', 'ao3'] as const;
     const responses = await Promise.allSettled(sections.map(async section => {
-        const transport = `Create only the ${section.toUpperCase()} section of ONE ${educationLevel} mini quiz from all supplied source pages. When two pages are supplied, use relevant content from BOTH pages. Generate EXACTLY ${counts[section]} questions.
+        const transport = `Create only the ${section.toUpperCase()} section of ONE ${educationLevel} mini quiz from all supplied source pages. Use relevant content from ALL supplied pages. Generate EXACTLY ${counts[section]} questions.
 The next text block, when present, is the client's complete verbatim prompt and governs the educational content. Use JSON only as the output encoding; preserve its scientific and pedagogical requirements.
 Use local question numbers 1-${counts[section]} in the mark scheme. Do not put question numbers in question.text or refer to other question numbers; the application numbers the combined quiz.
 Map the title to topicName, questions to questions, and the student-friendly mark scheme to markScheme. Put each complete AO2 scenario, observation and value in question.text; No separately generated stimulus is needed for AO2.

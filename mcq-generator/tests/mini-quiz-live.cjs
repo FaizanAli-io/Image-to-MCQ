@@ -7,8 +7,8 @@ const { loadModule } = require('./load-module.cjs');
 
 async function main() {
   const [level, ...args] = process.argv.slice(2);
-  if (!['GCSE', 'A-LEVEL'].includes(level) || args.length < 2 || args.length > 3 || !process.env.OPENAI_API_KEY) {
-    throw new Error('Supply a level, one or two source image paths, output directory and API key.');
+  if (!['GCSE', 'A-LEVEL'].includes(level) || args.length < 2 || args.length > 11 || !process.env.OPENAI_API_KEY) {
+    throw new Error('Supply a level, one to ten source image paths, output directory and API key.');
   }
   const output = path.resolve(args.pop());
   const images = await Promise.all(args.map(async file => {

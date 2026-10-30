@@ -2,6 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { extractText } from 'unpdf';
+import { extractQuestionBatches, type ExtractedQuestion } from '@/lib/question-extraction';
+
+export const maxDuration = 300;
+const EXTRACTION_VERSION = 'document-batches-v3';
 
 const ALLOWED_ORIGINS = [
   'https://quizgenerator.pastpaperpal.co.uk',
@@ -16,8 +20,11 @@ function getCorsHeaders(req?: NextRequest) {
 
   return {
     "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Expose-Headers": "X-Extraction-Version",
+    "X-Extraction-Version": EXTRACTION_VERSION,
+    "Cache-Control": "no-store",
     "Vary": "Origin",
   };
 }
@@ -29,15 +36,17 @@ export async function OPTIONS(req: NextRequest) {
   });
 }
 
+// Lets operators verify the deployed extractor without uploading PDFs or
+// spending tokens. Also present on POST responses, including failures.
+export async function GET(req: NextRequest) {
+  return NextResponse.json({ extractionVersion: EXTRACTION_VERSION }, {
+    headers: getCorsHeaders(req),
+  });
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-interface ExtractedQuestion {
-  question_id: string;
-  text: string;
-  mark_scheme: string;
-}
 
 // Extract text from PDF
 async function extractPDFText(buffer: Buffer): Promise<string> {
@@ -57,9 +66,9 @@ async function extractQuestionsWithAI(
   pastPaperText: string,
   markSchemeText: string
 ): Promise<ExtractedQuestion[]> {
-  const systemPrompt = `You are an expert GCSE Chemistry exam question extractor with high precision.
+  const systemPrompt = `You are an expert exam question extractor with high precision.
 
-TASK: Extract ALL questions from a past paper and match them with their corresponding mark schemes.
+TASK: Extract ALL questions beginning in the requested TARGET SECTION and match them with their corresponding mark schemes. Use the rest of the paper only as context to complete those questions.
 
 OUTPUT FORMAT: Return ONLY a JSON object with this EXACT structure:
 {
@@ -151,48 +160,10 @@ CORRECT OUTPUT:
 
 REMEMBER: Your job is to extract and match, NOT to interpret or simplify. Preserve ALL original content.`;
 
-  const userPrompt = `PAST PAPER TEXT:
-${pastPaperText.slice(0, 60000)}
-
----
-
-MARK SCHEME TEXT:
-${markSchemeText.slice(0, 60000)}
-
-Extract ALL questions with their complete mark schemes. Return JSON object with "questions" array.`;
-
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0,
-      max_tokens: 16000 // Increased for longer papers
-    });
-
-    const content = completion.choices[0].message.content!;
-
-    // Parse and extract questions array
-    let parsed = JSON.parse(content);
-
-    // Handle different response structures
-    let questionsArray: any[] = [];
-    if (Array.isArray(parsed)) {
-      questionsArray = parsed;
-    } else if (parsed.questions && Array.isArray(parsed.questions)) {
-      questionsArray = parsed.questions;
-    } else {
-      // Try to find first array in object
-      const values = Object.values(parsed);
-      questionsArray = values.find(v => Array.isArray(v)) as any[] || [];
-    }
-
-    if (!Array.isArray(questionsArray) || questionsArray.length === 0) {
-      throw new Error('No questions array found in AI response');
-    }
+    const questionsArray = await extractQuestionBatches(
+      openai, systemPrompt, pastPaperText, markSchemeText
+    );
 
     // ENHANCED: Validate and clean each question
     const questions: ExtractedQuestion[] = [];
@@ -212,17 +183,12 @@ Extract ALL questions with their complete mark schemes. Return JSON object with 
         mark_scheme: String(q.mark_scheme ?? '').trim()
       };
 
-      // Check for duplicates
+      // A boundary question can be repeated by the model. Do not invent IDs.
       if (seenIds.has(cleanQuestion.question_id)) {
-        console.warn('Duplicate question_id found:', cleanQuestion.question_id);
-        // Append suffix to make unique
-        let counter = 2;
-        let newId = `${cleanQuestion.question_id}_${counter}`;
-        while (seenIds.has(newId)) {
-          counter++;
-          newId = `${cleanQuestion.question_id}_${counter}`;
-        }
-        cleanQuestion.question_id = newId;
+        const existing = questions.find(q => q.question_id === cleanQuestion.question_id)!;
+        const markScheme = cleanQuestion.mark_scheme || '[Mark scheme not extracted - manual review required]';
+        if (existing.text === cleanQuestion.text && existing.mark_scheme === markScheme) continue;
+        throw new Error(`Conflicting extracted entries for ${cleanQuestion.question_id}. Please extract a smaller paper section to preserve the original question IDs.`);
       }
 
       // Additional validation
@@ -246,9 +212,9 @@ Extract ALL questions with their complete mark schemes. Return JSON object with 
 
     return questions;
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('AI extraction error:', error);
-    throw new Error(`AI extraction failed: ${error.message}`);
+    throw new Error(`AI extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -343,12 +309,12 @@ export async function POST(req: NextRequest) {
       headers: getCorsHeaders(req)
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Extraction error:', error);
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to extract questions',
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        error: error instanceof Error ? error.message : 'Failed to extract questions',
+        details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
       },
       {
         status: 500,

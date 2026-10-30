@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Download, Beaker, Atom, FlaskConical, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { getTopicMapperApiUrl } from '@/lib/topic-mapper-api';
 
 // Subject configuration
 const SUBJECTS = {
@@ -114,12 +115,6 @@ interface QuestionMapping {
   reason: string;
   needs_review: boolean;
   review_reason: string | null;
-}
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
-
-function getApiUrl(path: string): string {
-  return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
 }
 
 interface ParsedQuestionId {
@@ -488,7 +483,7 @@ export default function TopicMapperPage() {
       formData.append('pastPaper', pastPaperFile);
       formData.append('markScheme', markSchemeFile);
       
-      const response = await fetch(getApiUrl('/api/extract-questions'), {
+      const response = await fetch(getTopicMapperApiUrl('/api/extract-questions'), {
         method: 'POST',
         body: formData
       });
@@ -524,7 +519,7 @@ export default function TopicMapperPage() {
     setMappingError(null);
     
     try {
-      const response = await fetch(getApiUrl('/api/map-questions'), {
+      const response = await fetch(getTopicMapperApiUrl('/api/map-questions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questions, topics })
