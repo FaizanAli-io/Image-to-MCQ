@@ -6,6 +6,7 @@ import { miniQuizQuestionText } from './mini-quiz-presentation';
 import { drawScientificLine, takeScientificLine } from './scientific-pdf';
 import { layoutStimulus, type StimulusPanel, type DrawItem } from './stimulus-layout';
 import { drawStimulusPanel } from './stimulus-pdf';
+import { MINI_QUIZ_QR, MINI_QUIZ_URL } from './mini-quiz-brand';
 
 const NAVY = '#10276B', INK = '#344B80', BLUE = '#E6F2FA', RULE = '#DCE9F2', GREEN = '#23B887';
 const M = 14, RIGHT = 196, WIDTH = RIGHT - M, BOTTOM = 281, LH = 4.8, SIZE = 10.3;
@@ -23,7 +24,7 @@ export function generateMiniQuizPDF(questions: GeneratedQuestion[], options: Min
   const topic = (questions[0]?.topic || 'Mini Quiz').replace(/[\r\n]+/g, ' ').trim();
   const level = options.educationLevel || questions[0]?.educationLevel || (questions.filter(q => q.aoLevel === 'AO1').length === 10 ? 'GCSE' : 'A-LEVEL');
   doc.setProperties({ title: miniQuizTitle(questions, level) });
-  let y = 23, part: 'Mini Quiz' | 'Mark Scheme' = 'Mini Quiz';
+  let y = 34, part: 'Mini Quiz' | 'Mark Scheme' = 'Mini Quiz';
   let active: Section | undefined;
   let image: { page: number; left: number; bottom: number } | undefined;
   let markStart = 0;
@@ -46,11 +47,32 @@ export function generateMiniQuizPDF(questions: GeneratedQuestion[], options: Min
     doc.setDrawColor(color); doc.setLineWidth(0.25); doc.line(left, at, right, at);
   }
   function header() {
-    text('Past Paper Pal', M, 12, 10, true, NAVY);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(NAVY);
-    doc.text(`${level} | ${part}`, RIGHT, 12, { align: 'right' });
-    rule(17, NAVY);
-    y = 23;
+    text('Past Paper Pal', M, 15, 32, true, NAVY);
+    doc.setDrawColor(GREEN); doc.setLineWidth(0.8); doc.line(M, 18, M + 83, 18);
+    doc.setTextColor(NAVY); doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+    doc.text('REVISION TOOLS · BY HI TUTORING', M, 24, { charSpace: 0.65 });
+
+    doc.setFillColor('#F1F8F8'); doc.roundedRect(139, 6, 57, 21, 1.5, 1.5, 'F');
+    // Vector modules stay sharp in print; the matrix includes its white quiet zone.
+    const qrX = 140, qrY = 7, qrSize = 19, cell = qrSize / MINI_QUIZ_QR.length;
+    doc.setFillColor('#FFFFFF'); doc.rect(qrX, qrY, qrSize, qrSize, 'F');
+    doc.setFillColor('#000000');
+    MINI_QUIZ_QR.forEach((row, r) => {
+      for (let c = 0; c < row.length; c++) if (row[c] === '1') doc.rect(qrX + c * cell, qrY + r * cell, cell, cell, 'F');
+    });
+    text('Want more questions', 161, 10, 7.7, true, NAVY);
+    text('like these?', 161, 13.5, 7.7, true, NAVY);
+    text('Turn your revision notes', 161, 17.5, 7);
+    text('into your own quiz.', 161, 21, 7);
+    const linkLabel = MINI_QUIZ_URL.replace(/^https:\/\//, '').replace(/\/$/, '');
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+    const linkSize = Math.min(7, 7 * 33 / doc.getTextWidth(linkLabel));
+    text(linkLabel, 161, 24.5, linkSize, false, '#16855D');
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(linkSize);
+    rule(25, '#16855D', 161, 161 + doc.getTextWidth(linkLabel));
+    doc.link(139, 6, 57, 21, { url: MINI_QUIZ_URL });
+    rule(30, NAVY);
+    y = 34;
   }
   function availableWidth(at = y) {
     return image && image.page === doc.getNumberOfPages() && at < image.bottom + 2 ? image.left - M - 5 : WIDTH;
@@ -72,6 +94,11 @@ export function generateMiniQuizPDF(questions: GeneratedQuestion[], options: Min
   function title(value: string) {
     const wrapped = lines(value, WIDTH, 24, true);
     wrapped.forEach(line => { ensure(11); text(line, M, y + 8, 24, true, NAVY); y += 11; });
+    if (part === 'Mini Quiz') {
+      doc.setTextColor(NAVY); doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+      doc.text('MINI QUIZ', M, y + 3, { charSpace: 1.3 });
+      y += 7;
+    }
     y += 2; rule(y, GREEN); y += 4;
   }
   function badge(label: string, at: number, marks?: number, continued = false) {
@@ -96,7 +123,7 @@ export function generateMiniQuizPDF(questions: GeneratedQuestion[], options: Min
       const minHeight = marks === undefined ? 10 : 14;
       const height = Math.max(minHeight, wrapped.length * LH + 5);
       const freshHeight = Math.max(minHeight, lines(remaining, WIDTH - 24).length * LH + 5);
-      if (y + height > BOTTOM && freshHeight <= BOTTOM - 39 && y > 40) {
+      if (y + height > BOTTOM && freshHeight <= BOTTOM - 50 && y > 51) {
         newPage(); width = availableWidth(); wrapped = lines(remaining, width - 24);
       }
       if (BOTTOM - y < minHeight + LH) { newPage(); continue; }
@@ -236,7 +263,7 @@ export function generateMiniQuizPDF(questions: GeneratedQuestion[], options: Min
     const firstText = lines(questionParagraphs(first).join('\n'), WIDTH - 24).length * LH + 5;
     const firstEvidence = first.stimuli?.find(s => !stimuli.has(s.id));
     const firstBlock = firstEvidence ? panelHeight(evidencePanels(firstEvidence, WIDTH - 28), WIDTH - 28) + 35 : firstText + 15;
-    const minimum = firstBlock <= BOTTOM - 23 ? firstBlock : 55;
+    const minimum = firstBlock <= BOTTOM - 34 ? firstBlock : 55;
     if (y + minimum > BOTTOM) newPage(false);
     active = section; sectionBar(section);
     for (const { q, number } of entries) {
@@ -274,7 +301,7 @@ export function generateMiniQuizPDF(questions: GeneratedQuestion[], options: Min
     const firstWidth = bytes ? WIDTH - imageWidth - 5 : WIDTH;
     const firstRowHeight = lines(firstParagraphs.join('\n'), firstWidth - 24).length * LH + 5;
     const firstSectionHeight = lines(`${section[0]} – ${section[1]}`, firstWidth - 8, 11.7, true).length * 5.3 + 7.5;
-    const intro = firstRowHeight + firstSectionHeight <= BOTTOM - 23 ? firstRowHeight + firstSectionHeight : 40;
+    const intro = firstRowHeight + firstSectionHeight <= BOTTOM - 34 ? firstRowHeight + firstSectionHeight : 40;
     if (y + Math.max(imageHeight, intro) > BOTTOM) newPage(false);
     if (bytes) {
       const left = RIGHT - imageWidth;

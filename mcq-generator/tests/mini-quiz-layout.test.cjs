@@ -11,7 +11,7 @@ async function readPages(questions) {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const { items } = await page.getTextContent();
-    pages.push({ text: items.map(x => x.str).join(' '), items, view: page.view });
+    pages.push({ text: items.map(x => x.str).join(' '), items, view: page.view, annotations: await page.getAnnotations() });
   }
   return pages;
 }
@@ -30,12 +30,15 @@ test('mini layout adapts to different lengths with complete content and separate
   for (const count of [1, 7, 35]) {
     const questions = quiz(count), before = structuredClone(questions);
     const pages = await readPages(questions);
-    const start = pages.findIndex(p => p.text.includes('| Mark Scheme'));
+    const start = pages.findIndex(p => p.text.includes('Mark Scheme'));
     assert.ok(start > 0);
     pages.forEach((p, i) => {
       assert.ok(p.text.includes(`Page ${i < start ? i + 1 : i - start + 1} of ${i < start ? start : pages.length - start}`));
       assert.match(p.text, /Past Paper Pal/);
-      assert.doesNotMatch(p.text, /Want more questions|HI TUTORING|pastpaperpal\.co/);
+      assert.match(p.text, /Want more questions/);
+      assert.match(p.text.replace(/\s/g, ''), /HITUTORING/);
+      assert.match(p.text, /quizgenerator\.pastpaperpal\.co\.uk/);
+      assert.ok(p.annotations.some(a => a.url === 'https://quizgenerator.pastpaperpal.co.uk/'));
     });
     for (let n = 1; n <= count; n++) {
       const questionPage = pages.slice(0, start).filter(p => p.text.includes(`Start${n} `));
