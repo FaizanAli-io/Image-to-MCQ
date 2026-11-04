@@ -167,7 +167,7 @@ export async function generateMiniQuiz(
     imageUrls: string[],
     educationLevel: "GCSE" | "A-LEVEL"
 ): Promise<GeneratedQuestion[]> {
-    const client = new OpenAI({ apiKey, timeout: 75_000, maxRetries: 0 });
+    const client = new OpenAI({ apiKey, timeout: 120_000, maxRetries: 0 });
     const counts = miniQuizCounts(educationLevel);
     const sections = ['ao1', 'ao2', 'ao3'] as const;
     const responses = await Promise.allSettled(sections.map(async section => {

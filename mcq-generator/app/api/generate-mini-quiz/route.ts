@@ -4,7 +4,7 @@ import { uploadToR2, deleteFromR2, getSignedR2Url } from '@/lib/r2-client';
 import { MiniQuizEvidenceError } from '@/lib/mini-quiz-errors';
 
 export const runtime = 'nodejs';
-export const maxDuration = 90;
+export const maxDuration = 180;
 
 export async function POST(request: NextRequest) {
   const uploadedKeys: string[] = [];
