@@ -19,9 +19,10 @@ export const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME!;
 export async function uploadToR2(
   buffer: Buffer,
   filename: string,
-  contentType: string
+  contentType: string,
+  objectKey?: string,
 ): Promise<string> {
-  const key = `temp/${Date.now()}-${Math.random().toString(36).substring(2)}-${filename}`;
+  const key = objectKey ?? `temp/${Date.now()}-${Math.random().toString(36).substring(2)}-${filename}`;
   
   await r2Client.send(
     new PutObjectCommand({

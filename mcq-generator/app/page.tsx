@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { pollMiniQuiz, MiniQuizJobError, PENDING_MINI_QUIZ, forgetPendingMiniQuiz } from '@/lib/mini-quiz-poll';
 import ImageUploader from '@/components/ImageUploader';
 import QuestionTypeSelector from '@/components/QuestionTypeSelector';
 import QuestionDisplay from '@/components/QuestionDisplay';
@@ -24,10 +25,38 @@ export default function Home() {
   const [error, setError] = useState('');
   const [errorCode, setErrorCode] = useState('');
 
+  const [generationProgress, setGenerationProgress] = useState('');
+  const polling = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    polling.current = controller;
+    let id: string | null = null;
+    try { id = localStorage.getItem(PENDING_MINI_QUIZ); } catch { /* Storage can be disabled. */ }
+    if (id && /^[a-f0-9]{64}$/.test(id)) {
+      setLoading(true);
+      void pollMiniQuiz(id, controller.signal, setGenerationProgress).then(result => {
+        if (controller.signal.aborted) return;
+        setQuestions(result);
+        setConfig(previous => ({ ...previous, quizType: 'mini', educationLevel: result[0]?.educationLevel || previous.educationLevel }));
+        forgetPendingMiniQuiz(id!);
+      }).catch(err => {
+        if (controller.signal.aborted) return;
+        setError(err.message);
+        setErrorCode(err instanceof MiniQuizJobError ? err.code : '');
+        if (err instanceof MiniQuizJobError && err.terminal) {
+          forgetPendingMiniQuiz(id!);
+        }
+      }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    }
+    return () => { controller.abort(); polling.current?.abort(); };
+  }, []);
+
   const isRetrieval = config.quizType === 'retrieval';
   const needsAO3Review = questions.some(q => q.reviewStatus === 'recommended' || q.reviewStatus === 'unavailable');
 
   const handleGenerate = async () => {
+    let pendingJobId: string | undefined;
     setErrorCode('');
     if (!uploadedFiles) {
       setError(isRetrieval ? 'Please upload 3 images (one for each topic)' : 'Please upload 1 to 10 pages for one mini quiz');
@@ -47,6 +76,7 @@ export default function Home() {
     }
 
     setLoading(true);
+    setGenerationProgress('Preparing your questions, evidence and mark scheme...');
     setError('');
     setQuestions([]);
 
@@ -72,7 +102,7 @@ export default function Home() {
         const data = await response.json();
         setQuestions(data.questions.map((q: GeneratedQuestion) => ({ ...q, educationLevel: config.educationLevel })));
       } else if (config.quizType === 'mini') {
-        // Use both pages together in one Mini Quiz request
+        // Use all supplied pages together in one Mini Quiz request
         const formData = new FormData();
         filesArray.forEach((file) => formData.append('images', file));
         formData.append('educationLevel', config.educationLevel);
@@ -89,9 +119,24 @@ export default function Home() {
         }
 
         const data = await response.json();
-        setQuestions(data.questions);
+        if (response.status === 202 && typeof data.jobId === 'string') {
+          pendingJobId = data.jobId;
+          try { localStorage.setItem(PENDING_MINI_QUIZ, data.jobId); } catch {}
+          polling.current?.abort();
+          const controller = new AbortController();
+          polling.current = controller;
+          const result = await pollMiniQuiz(data.jobId, controller.signal, setGenerationProgress);
+          setQuestions(result);
+          forgetPendingMiniQuiz(data.jobId);
+        } else {
+          setQuestions(data.questions);
+        }
       }
     } catch (err) {
+      if (err instanceof MiniQuizJobError) {
+        setErrorCode(err.code);
+        if (err.terminal && pendingJobId) forgetPendingMiniQuiz(pendingJobId);
+      }
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
@@ -279,7 +324,7 @@ export default function Home() {
           <div className="mt-8 bg-white rounded-xl shadow-xl p-12 border border-gray-200 text-center fade-in">
             <LoadingSpinner />
             <p className="mt-4 text-gray-700 font-medium">Analyzing your content with AI...</p>
-            <p className="mt-2 text-sm text-gray-500">{config.quizType === 'mini' ? 'Preparing your questions, evidence and mark scheme...' : '⏱️ This usually takes 10-15 seconds'}</p>
+            <p className="mt-2 text-sm text-gray-500">{config.quizType === 'mini' ? generationProgress || 'Preparing your questions, evidence and mark scheme...' : '⏱️ This usually takes 10-15 seconds'}</p>
           </div>
         )}
 

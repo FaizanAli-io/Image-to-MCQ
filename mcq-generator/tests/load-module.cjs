@@ -20,6 +20,7 @@ function loadModule(relativePath, mocks = {}) {
       const extension = target.startsWith('components/') ? '.tsx' : '.ts';
       return loadModule(target + extension, mocks);
     }
+    if (name.startsWith('node:')) return require(name);
     if (['jspdf', 'react/jsx-runtime'].includes(name)) return require(name);
     throw new Error(`Unexpected dependency: ${name}`);
   }, module, module.exports);

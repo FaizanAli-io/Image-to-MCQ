@@ -40,20 +40,34 @@ export function reconcileMiniQuizMarks(raw: MiniQuizDraft, level: MiniQuizLevel)
     if (!Array.isArray(entries) || entries.length !== counts[section]) {
       throw new Error(`${section}: missing marking entries`);
     }
+    reconcileMiniQuizSection(raw.questions.slice(offset, offset + counts[section]), entries, section, offset);
+    offset += counts[section];
+  }
+}
+
+/** Validate a section independently so successful sections can be checkpointed. */
+export function reconcileMiniQuizSection(questions: MiniQuizDraft['questions'], entries: MiniQuizMarkEntry[], section: 'ao1' | 'ao2' | 'ao3', offset = 0): void {
     const seen = new Set<number>();
     for (const entry of entries) {
       const number = entry.questionNumber;
-      if (!Number.isInteger(number) || number <= offset || number > offset + counts[section] || seen.has(number)) {
+      if (!Number.isInteger(number) || number <= offset || number > offset + questions.length || seen.has(number)) {
         throw new Error(`${section}: marking entries must match each question exactly once`);
       }
       seen.add(number);
-      const question = raw.questions[number - 1];
+      const question = questions[number - offset - 1];
       if (question.aoLevel !== section.toUpperCase() || !question.text?.trim()
         || !['SHORT_ANSWER', 'LONG_ANSWER'].includes(question.type)) {
         throw new Error(`Q${number}: invalid question or assessment objective`);
       }
       if (!Array.isArray(entry.markPoints) || entry.markPoints.length < 1 || entry.markPoints.length > 8) {
         throw new Error(`Q${number}: missing or excessive marking points`);
+      }
+      const originalPointCount = entry.markPoints.length;
+      cleanMarkPoints(entry, number);
+      if (entry.markPoints.length < originalPointCount && entry.markPoints.length < question.maxMarks) {
+        // A smaller scheme might be missing a reason/explanation that the model
+        // replaced with a duplicate. Let recovery assess it against the source.
+        throw new Error(`Q${number}: marking cleanup leaves fewer points than the original mark allocation; confirm answer completeness`);
       }
       const requests = responseRequests(question.text);
       const writtenCount = requests.length ? requests.reduce((sum, count) => sum + count, 0) : null;
@@ -106,21 +120,43 @@ export function reconcileMiniQuizMarks(raw: MiniQuizDraft, level: MiniQuizLevel)
           entry.responseGroups = [];
         }
       } else if (entry.responseGroups?.length) {
-        entry.responseGroups = [];
+        const groups = entry.responseGroups;
+        const indices = groups.flat();
+        const complete = groups.every(group => Array.isArray(group) && group.length > 0)
+          && indices.length === entry.markPoints.length && new Set(indices).size === indices.length
+          && indices.every(index => Number.isInteger(index) && index >= 1 && index <= entry.markPoints.length);
+        if (!complete) entry.responseGroups = [];
       }
-      const distinct = new Set<string>();
-      entry.markPoints = entry.markPoints.map(point => {
-        if (typeof point !== 'string' || !/\S.*\[1\]\s*$/.test(point)) {
-          throw new Error(`Q${number}: each distinct marking point must end in [1]`);
-        }
-        const key = point.replace(/\s*\[1\]\s*$/, '').replace(/\s+/g, ' ').trim().toLowerCase();
-        if (!key || distinct.has(key)) throw new Error(`Q${number}: duplicate or empty marking point`);
-        distinct.add(key);
-        return point.trim();
-      });
       question.maxMarks = alternatives ? requested! : entry.markPoints.length;
     }
     entries.sort((a, b) => a.questionNumber - b.questionNumber);
-    offset += counts[section];
+}
+
+function cleanMarkPoints(entry: MiniQuizMarkEntry, number: number): void {
+  const points: string[] = [];
+  const remap = new Map<number, number>();
+  const seen = new Map<string, number>();
+  const groups = Array.isArray(entry.responseGroups) ? entry.responseGroups : [];
+  for (const [index, point] of entry.markPoints.entries()) {
+    if (typeof point !== 'string') throw new Error(`Q${number}: invalid marking point`);
+    if (!point.trim() || /^\s*\[1\]\s*$/.test(point)) continue;
+    if (!/\S.*\[1\]\s*$/.test(point)) throw new Error(`Q${number}: each distinct marking point must end in [1]`);
+    const key = point.replace(/\s*\[1\]\s*$/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const membership = groups.flatMap((group, i) => Array.isArray(group) && group.includes(index + 1) ? [i] : []);
+    const groupedKey = JSON.stringify([key, membership]);
+    const previous = seen.get(groupedKey);
+    // Identical text can earn separate marks in different response groups.
+    // Only collapse repetitions with the same explicit group membership.
+    if (previous !== undefined) {
+      remap.set(index + 1, previous);
+      continue;
+    }
+    points.push(point.trim());
+    remap.set(index + 1, points.length);
+    seen.set(groupedKey, points.length);
   }
+  if (!points.length) throw new Error(`Q${number}: missing marking points after cleanup`);
+  if (groups.length) entry.responseGroups = groups.map(group =>
+    Array.isArray(group) ? [...new Set(group.map(index => remap.get(index)).filter((i): i is number => i !== undefined))] : []);
+  entry.markPoints = points;
 }

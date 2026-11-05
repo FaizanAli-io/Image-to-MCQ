@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "worker:build": "tsc -p tsconfig.worker.json",
+    "worker:start": "node .worker/workers/mini-quiz-worker.js",
     "lint": "eslint"
   },
   "dependencies": {

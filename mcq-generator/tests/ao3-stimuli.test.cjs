@@ -117,6 +117,7 @@ test('generation schemas constrain taxonomy and require explanations for positiv
       assert.equal(validateReview({ primaryType: 'invented_type', evidenceUse: 'Use measurements', inlineEvidence: null }), false);
       const validateGraph = new Ajv().compile(schema.properties.stimuli.items.anyOf[2]);
       const raw = structuredClone(graph);
+      raw.id = 's1';
       raw.categories = null;
       raw.series.forEach(s => { s.trendPoints = null; s.points.forEach(p => { p.yError ??= null; }); });
       assert.ok(validateGraph(raw), JSON.stringify(validateGraph.errors));

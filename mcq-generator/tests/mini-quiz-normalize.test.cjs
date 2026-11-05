@@ -65,6 +65,7 @@ test('schema prevents incompatible graph fields and malformed marking points dur
   const schema = getMiniQuizSectionSchema('A-LEVEL', 'ao3');
   const validateGraph = new Ajv().compile(schema.properties.stimuli.items.anyOf[2]);
   const input = structuredClone(graph);
+  input.id = 's1';
   input.categories = null;
   input.series.forEach(s => { s.trendPoints = null; s.points.forEach(p => { p.yError ??= null; }); });
   assert.ok(validateGraph(input));

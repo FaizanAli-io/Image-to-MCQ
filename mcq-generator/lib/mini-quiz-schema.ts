@@ -12,7 +12,7 @@ const enumValue = (...values: string[]): Schema => ({ type: 'string', enum: valu
 const object = (properties: Record<string, Schema>): Schema => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
 const axis = object({ label: text(70), units: { type: 'string', maxLength: 30 }, min: number, max: number, tickStep: number });
 const trendPoint = object({ x: number, y: number });
-const base = { id: { ...text(30), pattern: '^[a-zA-Z0-9_-]+$' }, title: text(100), context: nullable(text(1000)) };
+const base = { id: enumValue('s1', 's2', 's3'), title: text(100), context: nullable(text(1000)) };
 // Error bars and their explanation are one contract: positive errors cannot be
 // emitted with a null explanation. No-error graphs use null (or zero) errors.
 const graph = { anyOf: ['line', 'scatter', 'bar'].flatMap(graphType => [false, true].map(withErrors => object({
@@ -44,7 +44,7 @@ export const MINI_QUIZ_SCHEMA = object({
   topicName: string,
   developerSpecification: object({
     studentInstructions: { type: "string", maxLength: 300 },
-    stimuli: list(object({ stimulusId: string, questionNumbers: list({ type: "integer" }), format: string, whyNecessary: { type: "string", maxLength: 400 }, whyFormat: { type: "string", maxLength: 250 } })),
+    stimuli: list(object({ stimulusId: enumValue('s1', 's2', 's3'), questionNumbers: list({ type: "integer" }), format: string, whyNecessary: { type: "string", maxLength: 400 }, whyFormat: { type: "string", maxLength: 250 } })),
     typeCheck: list(object({ questionNumber: { type: "integer" }, primaryType: string, justification: string })),
   }),
   questions: list(object({
@@ -99,7 +99,7 @@ export function getMiniQuizSectionSchema(level: 'GCSE' | 'A-LEVEL', section: 'ao
       ...questionProperties, aoLevel: enumValue(section.toUpperCase()),
       ...(section === 'ao3' ? {
         requiresStimulus: { type: 'boolean', enum: [true] },
-        stimulusIds: { ...list(string), minItems: 1, maxItems: 3 },
+        stimulusIds: { ...list(enumValue('s1', 's2', 's3')), minItems: 1, maxItems: 3 },
         ao3Review: (questionProperties.ao3Review.anyOf as Schema[])[0],
       } : {
         requiresStimulus: { type: 'boolean', enum: [false] },

@@ -44,7 +44,7 @@ for (const level of ['GCSE', 'A-LEVEL']) {
   }
 }
 
-test('an invalid evidence response fails locally without AI review or correction calls', async () => {
+test('invalid evidence fails only after one bounded AO3 correction attempt', async () => {
   let calls = 0;
   const raw = fixture();
   raw.questions[14].stimulusIds = ['missing'];
@@ -55,7 +55,7 @@ test('an invalid evidence response fails locally without AI review or correction
     } } };
   } });
   await assert.rejects(generateMiniQuiz('test-only', ['image'], 'A-LEVEL'), /references missing stimuli/);
-  assert.equal(calls, 3);
+  assert.equal(calls, 4);
 });
 
 test('truncated JSON cannot become an exported quiz', async () => {
@@ -95,7 +95,7 @@ test('all three sections start concurrently and settle before returning an API f
   const { generateMiniQuiz } = loadModule('lib/openai.ts', { openai: class {
     constructor(options) {
       assert.equal(options.maxRetries, 0);
-      assert.equal(options.timeout, 75000);
+      assert.equal(options.timeout, 120000);
     }
     chat = { completions: { create: payload => new Promise((resolve, reject) => {
       pending.push({ section: payload.response_format.json_schema.name.slice(-3), resolve, reject });
