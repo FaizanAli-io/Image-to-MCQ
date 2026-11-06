@@ -13,6 +13,21 @@ function harness(reply) {
 }
 const isPaper = args => args.messages[1].content.startsWith('DOCUMENT TYPE: questions\n');
 
+test('source inventory owns questions and allocations even when the AI omits marking entries', async () => {
+  const source = [
+    { question_id: 'Q25(i)', text: 'Original Q25 question [3]', source_marks: 3, source_page: 8, source_part_ids: ['Q25(i)', 'Q25(ii)'] },
+    { question_id: 'Q25(ii)', text: 'Original Q25 second part [2]', source_marks: 2, source_page: 8, source_part_ids: ['Q25(i)', 'Q25(ii)'] },
+  ];
+  const { client, calls } = harness(() => response([{ question_id: '25i', content: 'Original answer' }, { question_id: '26c', content: 'A different answer' }]));
+  const result = await extractLargeDocuments(client, 'paper', 'marks', source);
+  assert.ok(calls.every(args => !isPaper(args)));
+  assert.deepEqual(result.map(q => q.question_id), source.map(q => q.question_id));
+  assert.equal(result[0].text, source[0].text);
+  assert.equal(result[0].source_marks, 3);
+  assert.match(result[1].extraction_review, /not matched/);
+  assert.match(result[1].mark_scheme, /manual review/);
+});
+
 test('matches exact hierarchical IDs, preserving unmatched questions and all marking blocks', async () => {
   const { client } = harness(args => response(isPaper(args) ? [
     { question_id: 'Q01(a)(i)', content: 'First question' },

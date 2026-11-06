@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Download, Beaker, Atom, FlaskConical, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { getTopicMapperApiUrl } from '@/lib/topic-mapper-api';
+import { buildMappingsWorkbook, reconcileMappings, type Question, type QuestionMapping } from '@/lib/topic-mapper-export';
 
 // Subject configuration
 const SUBJECTS = {
@@ -100,268 +101,6 @@ const getSubjectSpecLabel = (level: ExamLevel, selectedSubject: SubjectKey): str
 
   return SUBJECTS[selectedSubject].specLabel;
 };
-
-interface Question {
-  question_id: string;
-  text: string;
-  mark_scheme?: string;
-}
-
-interface QuestionMapping {
-  question_id: string;
-  primary_topic: string | null;
-  topic_name: string;
-  secondary_topic: string | null;
-  reason: string;
-  needs_review: boolean;
-  review_reason: string | null;
-}
-
-interface ParsedQuestionId {
-  main: number;
-  subLabel: string;
-  depth: number;
-}
-
-function parseQuestionId(questionId: string): ParsedQuestionId {
-  const cleaned = questionId
-    .trim()
-    .replace(/^question\s*/i, '')
-    .replace(/^q/i, '');
-  const mainMatch = cleaned.match(/^(\d+)/);
-  const main = mainMatch ? parseInt(mainMatch[1], 10) : 0;
-  const remainder = mainMatch ? cleaned.slice(mainMatch[1].length).trim() : cleaned;
-  const parts: string[] = [];
-  const firstPart = remainder.split('(')[0].replace(/[^a-z0-9]/gi, '');
-
-  if (firstPart) {
-    parts.push(firstPart.toLowerCase());
-  }
-
-  for (const match of remainder.matchAll(/\(([a-z0-9ivxlcdm]+)\)/gi)) {
-    parts.push(match[1].toLowerCase());
-  }
-
-  return {
-    main,
-    subLabel: parts.length ? `${parts[0]}${parts.slice(1).map(part => `(${part})`).join('')}` : 'whole',
-    depth: parts.length,
-  };
-}
-
-function getQuestionMarks(question?: Question): number | null {
-  if (!question) return null;
-
-  const text = question.text.trim();
-  const explicitMarkMatches = [
-    ...text.matchAll(/(?:\[(\d+)\s*marks?\]|\((\d+)\s*marks?\))/gi),
-  ];
-
-  if (explicitMarkMatches.length) {
-    const lastMatch = explicitMarkMatches[explicitMarkMatches.length - 1];
-    return parseInt(lastMatch[1] || lastMatch[2], 10) || null;
-  }
-
-  const lines = text
-    .split(/\r?\n|(?<=\.)\s+(?=[\[(]\d+[\])]\s*$)/)
-    .map(line => line.trim())
-    .filter(Boolean);
-
-  for (const line of [...lines].reverse()) {
-    const endMarkMatch = line.match(/(?:\[(\d+)\]|\((\d+)\))\s*$/);
-
-    if (endMarkMatch) {
-      return parseInt(endMarkMatch[1] || endMarkMatch[2], 10) || null;
-    }
-  }
-
-  return null;
-}
-
-function romanToNumber(value: string): number | null {
-  if (!/^[ivxlcdm]+$/i.test(value)) return null;
-
-  const numerals: Record<string, number> = {
-    i: 1,
-    v: 5,
-    x: 10,
-    l: 50,
-    c: 100,
-    d: 500,
-    m: 1000,
-  };
-  let total = 0;
-  let previous = 0;
-
-  [...value.toLowerCase()].reverse().forEach(char => {
-    const current = numerals[char];
-
-    if (current < previous) {
-      total -= current;
-    } else {
-      total += current;
-      previous = current;
-    }
-  });
-
-  return total;
-}
-
-function compareSubLabels(a: string, b: string): number {
-  if (a === 'whole') return b === 'whole' ? 0 : -1;
-  if (b === 'whole') return 1;
-
-  const tokenize = (label: string) =>
-    [label.split('(')[0], ...[...label.matchAll(/\(([^)]+)\)/g)].map(match => match[1])];
-  const aParts = tokenize(a);
-  const bParts = tokenize(b);
-  const maxLength = Math.max(aParts.length, bParts.length);
-
-  for (let index = 0; index < maxLength; index++) {
-    const aPart = aParts[index] || '';
-    const bPart = bParts[index] || '';
-
-    if (aPart === bPart) continue;
-
-    const numericA = Number(aPart);
-    const numericB = Number(bPart);
-    if (!Number.isNaN(numericA) && !Number.isNaN(numericB)) {
-      return numericA - numericB;
-    }
-
-    const romanA = romanToNumber(aPart);
-    const romanB = romanToNumber(bPart);
-    if (romanA !== null && romanB !== null) {
-      return romanA - romanB;
-    }
-
-    return aPart.localeCompare(bPart, undefined, { numeric: true });
-  }
-
-  return 0;
-}
-
-function buildMappingsWorkbook(mappingResults: QuestionMapping[], questions: Question[]) {
-  const parsedById = new Map(
-    mappingResults.map(result => [result.question_id, parseQuestionId(result.question_id)])
-  );
-  const questionById = new Map(questions.map(question => [question.question_id, question]));
-  const groupedByMain = new Map<number, QuestionMapping[]>();
-
-  mappingResults.forEach(result => {
-    const parsed = parsedById.get(result.question_id)!;
-
-    if (!groupedByMain.has(parsed.main)) {
-      groupedByMain.set(parsed.main, []);
-    }
-
-    groupedByMain.get(parsed.main)!.push(result);
-  });
-
-  const sortedMainQuestions = [...groupedByMain.keys()].sort((a, b) => a - b);
-  const maxSubPartCount = sortedMainQuestions.reduce((maxCount, main) => {
-    const subPartCount = groupedByMain
-      .get(main)!
-      .filter(result => parsedById.get(result.question_id)!.subLabel !== 'whole')
-      .length;
-
-    return Math.max(maxCount, subPartCount);
-  }, 0);
-  const summaryWorksheet = XLSX.utils.aoa_to_sheet([]);
-  const summaryHeaders = [
-    'Question Number',
-    'Total Question Marks',
-    'whole',
-    'Marks',
-    ...Array.from({ length: maxSubPartCount }).flatMap(() => ['', 'Marks']),
-  ];
-
-  XLSX.utils.sheet_add_aoa(summaryWorksheet, [summaryHeaders], { origin: 'A1' });
-
-  sortedMainQuestions.forEach((main, rowIndex) => {
-    const entries = groupedByMain.get(main)!;
-    const wholeEntries = entries.filter(result => parsedById.get(result.question_id)!.subLabel === 'whole');
-    const subPartEntries = entries
-      .filter(result => parsedById.get(result.question_id)!.subLabel !== 'whole')
-      .sort((a, b) =>
-        compareSubLabels(
-          parsedById.get(a.question_id)!.subLabel,
-          parsedById.get(b.question_id)!.subLabel
-        )
-      );
-    const orderedEntries = [...wholeEntries, ...subPartEntries];
-    const marks = orderedEntries.map(result => getQuestionMarks(questionById.get(result.question_id)));
-    const knownTotalMarks = marks.reduce<number>((total, mark) => total + (mark ?? 0), 0);
-    const totalMarks: string | number = marks.some(mark => mark === null) ? '?' : knownTotalMarks;
-    const wholeTopic = [...new Set(wholeEntries.map(result => result.topic_name || result.primary_topic || '').filter(Boolean))].join('; ');
-    const wholeMarks = wholeEntries.length
-      ? marks.slice(0, wholeEntries.length).some(mark => mark === null)
-        ? '?'
-        : marks.slice(0, wholeEntries.length).reduce<number>((total, mark) => total + (mark ?? 0), 0)
-      : '';
-    const rowData: (string | number)[] = [main, totalMarks, wholeTopic, wholeMarks];
-
-    subPartEntries.forEach(result => {
-      const mark = getQuestionMarks(questionById.get(result.question_id));
-
-      rowData.push(result.topic_name || result.primary_topic || '');
-      rowData.push(mark === null ? '?' : mark);
-    });
-
-    while (rowData.length < summaryHeaders.length) {
-      rowData.push('');
-    }
-
-    XLSX.utils.sheet_add_aoa(summaryWorksheet, [rowData], { origin: `A${rowIndex + 2}` });
-    });
-
-  summaryWorksheet['!cols'] = [
-    { wch: 18 },
-    { wch: 24 },
-    { wch: 35 },
-    { wch: 12 },
-    ...Array.from({ length: maxSubPartCount }).flatMap(() => [{ wch: 35 }, { wch: 12 }]),
-  ];
-
-  const detailRows = mappingResults.map(result => {
-    const parsed = parsedById.get(result.question_id)!;
-
-    return {
-      'Question ID': result.question_id,
-      'Question Number': parsed.main,
-      'Sub-question': parsed.subLabel,
-      'Sub-question Depth': parsed.depth,
-      'Primary Topic': result.primary_topic || '',
-      'Topic Name': result.topic_name || '',
-      'Secondary Topic': result.secondary_topic || '',
-      'Marks': getQuestionMarks(questionById.get(result.question_id)) ?? '?',
-      'Needs Review': result.needs_review ? 'Yes' : 'No',
-      'Review Reason': result.review_reason || '',
-      'Reason': result.reason || '',
-    };
-  });
-
-  const detailsWorksheet = XLSX.utils.json_to_sheet(detailRows);
-  detailsWorksheet['!cols'] = [
-    { wch: 18 },
-    { wch: 18 },
-    { wch: 18 },
-    { wch: 18 },
-    { wch: 16 },
-    { wch: 36 },
-    { wch: 16 },
-    { wch: 10 },
-    { wch: 14 },
-    { wch: 20 },
-    { wch: 70 },
-  ];
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Question Mappings');
-  XLSX.utils.book_append_sheet(workbook, detailsWorksheet, 'Detailed Mappings');
-
-  return workbook;
-}
 
 export default function TopicMapperPage() {
   // Subject selection
@@ -528,12 +267,17 @@ export default function TopicMapperPage() {
       if (!response.ok) throw new Error('Mapping failed');
       
       const data = await response.json();
-      setResults(data.results);
-      setStats(data.stats);
+      const reviewedResults = reconcileMappings(data.results, questions);
+      const reviewedStats = { ...data.stats, total: reviewedResults.length,
+        needsReview: reviewedResults.filter(result => result.needs_review).length,
+        cleanMappings: reviewedResults.filter(result => !result.needs_review && result.primary_topic !== null).length,
+      };
+      setResults(reviewedResults);
+      setStats(reviewedStats);
       setCurrentStep(3);
       
       // Automatically send email with Excel attachment
-      await sendEmailWithExcel(data.results, data.stats);
+      await sendEmailWithExcel(reviewedResults, reviewedStats);
       
     } catch (err: any) {
       setMappingError(err.message);

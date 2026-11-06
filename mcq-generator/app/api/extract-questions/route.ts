@@ -1,11 +1,14 @@
 // ENHANCED VERSION with improved extraction quality
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { extractText } from 'unpdf';
+import { readMapperPdf } from '@/lib/mapper-pdf';
+import type { MapperSourceQuestion } from '@/lib/mapper-source';
+import type { SourceMarkingRow } from '@/lib/mapper-mark-scheme';
+import { matchSourceMarkingRows } from '@/lib/mapper-source-extraction';
 import { extractQuestionBatches, type ExtractedQuestion } from '@/lib/question-extraction';
 
 export const maxDuration = 300;
-const EXTRACTION_VERSION = 'document-batches-v3';
+const EXTRACTION_VERSION = 'source-layout-v4';
 
 const ALLOWED_ORIGINS = [
   'https://quizgenerator.pastpaperpal.co.uk',
@@ -48,23 +51,12 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Extract text from PDF
-async function extractPDFText(buffer: Buffer): Promise<string> {
-  try {
-    const uint8Array = new Uint8Array(buffer);
-    const result = await extractText(uint8Array);
-    const text = Array.isArray(result.text) ? result.text.join('\n') : result.text;
-    return text;
-  } catch (error) {
-    console.error('PDF extraction error:', error);
-    throw new Error('Failed to extract text from PDF');
-  }
-}
-
 // ENHANCED: Better prompt with clearer instructions
 async function extractQuestionsWithAI(
   pastPaperText: string,
-  markSchemeText: string
+  markSchemeText: string,
+  sourceQuestions: MapperSourceQuestion[] | null,
+  sourceMarkingRows: SourceMarkingRow[] | null,
 ): Promise<ExtractedQuestion[]> {
   const systemPrompt = `You are an expert exam question extractor with high precision.
 
@@ -161,9 +153,9 @@ CORRECT OUTPUT:
 REMEMBER: Your job is to extract and match, NOT to interpret or simplify. Preserve ALL original content.`;
 
   try {
-    const questionsArray = await extractQuestionBatches(
-      openai, systemPrompt, pastPaperText, markSchemeText
-    );
+    const questionsArray = sourceQuestions && sourceMarkingRows
+      ? await matchSourceMarkingRows(openai, sourceQuestions, sourceMarkingRows)
+      : await extractQuestionBatches(openai, systemPrompt, pastPaperText, markSchemeText, sourceQuestions);
 
     // ENHANCED: Validate and clean each question
     const questions: ExtractedQuestion[] = [];
@@ -178,9 +170,11 @@ REMEMBER: Your job is to extract and match, NOT to interpret or simplify. Preser
 
       // Clean and normalize
       const cleanQuestion: ExtractedQuestion = {
+        ...q,
         question_id: String(q.question_id).trim(),
         text: String(q.text).trim(),
-        mark_scheme: String(q.mark_scheme ?? '').trim()
+        mark_scheme: String(q.mark_scheme ?? '').trim(),
+        ...(!sourceQuestions ? { extraction_review: [q.extraction_review, 'Source coverage could not be verified for this PDF layout. Check question parts and totals against the paper.'].filter(Boolean).join(' ') } : {}),
       };
 
       // A boundary question can be repeated by the model. Do not invent IDs.
@@ -264,10 +258,12 @@ export async function POST(req: NextRequest) {
 
     // Extract text from PDFs
     console.log('Extracting text from PDFs...');
-    const [pastPaperText, markSchemeText] = await Promise.all([
-      extractPDFText(pastPaperBuffer),
-      extractPDFText(markSchemeBuffer)
+    const [paper, markScheme] = await Promise.all([
+      readMapperPdf(pastPaperBuffer, true),
+      readMapperPdf(markSchemeBuffer)
     ]);
+    const pastPaperText = paper.text;
+    const markSchemeText = markScheme.text;
 
     // Validate extracted text
     if (!pastPaperText || pastPaperText.trim().length < 100) {
@@ -292,7 +288,7 @@ export async function POST(req: NextRequest) {
 
     // Extract and structure questions
     console.log('Extracting questions with AI...');
-    const questions = await extractQuestionsWithAI(pastPaperText, markSchemeText);
+    const questions = await extractQuestionsWithAI(pastPaperText, markSchemeText, paper.sourceQuestions, markScheme.sourceMarkingRows);
 
     // Return with metadata
     return NextResponse.json({

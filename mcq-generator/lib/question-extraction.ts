@@ -1,10 +1,15 @@
 import type OpenAI from 'openai';
 import { extractLargeDocuments } from './large-document-extraction';
+import type { MapperSourceQuestion } from './mapper-source';
 
 export interface ExtractedQuestion {
   question_id: string;
   text: string;
   mark_scheme: string;
+  source_marks?: number | null;
+  source_page?: number;
+  source_part_ids?: string[];
+  extraction_review?: string;
 }
 
 class IncompleteExtractionError extends Error {}
@@ -33,11 +38,12 @@ export async function extractQuestionBatches(
   systemPrompt: string,
   paper: string,
   markScheme: string,
+  sourceQuestions?: MapperSourceQuestion[] | null,
 ): Promise<ExtractedQuestion[]> {
   // Larger documents are independently sectioned, then joined by question ID.
   // This is a strategy switch, not a document-size rejection.
-  if (Buffer.byteLength(paper + markScheme, 'utf8') > 90000) {
-    return extractLargeDocuments(client, paper, markScheme);
+  if (sourceQuestions?.length || Buffer.byteLength(paper + markScheme, 'utf8') > 90000) {
+    return extractLargeDocuments(client, paper, markScheme, sourceQuestions);
   }
   let requests = 0;
   async function extractRange(start: number, end: number): Promise<ExtractedQuestion[]> {
