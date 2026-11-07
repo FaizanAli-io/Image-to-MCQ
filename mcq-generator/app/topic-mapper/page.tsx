@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Download, Beaker, Atom, FlaskConical, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { getTopicMapperApiUrl } from '@/lib/topic-mapper-api';
+import { resolveTopicMapperApiBase } from '@/lib/topic-mapper-api';
+import { assertMapperExtractionVersion } from '@/lib/topic-mapper-contract';
 import { buildMappingsWorkbook, reconcileMappings, type Question, type QuestionMapping } from '@/lib/topic-mapper-export';
 
 // Subject configuration
@@ -114,6 +115,7 @@ export default function TopicMapperPage() {
   const [markSchemeFile, setMarkSchemeFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
+  const [mapperApiBase, setMapperApiBase] = useState<string | null>(null);
   
   // Step 2: Questions & Topics
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -139,6 +141,7 @@ export default function TopicMapperPage() {
     setMarkSchemeFile(null);
     setExtracting(false);
     setExtractionError(null);
+    setMapperApiBase(null);
     setQuestions([]);
     setResults([]);
     setStats(null);
@@ -216,13 +219,15 @@ export default function TopicMapperPage() {
     
     setExtracting(true);
     setExtractionError(null);
+    setMapperApiBase(null);
     
     try {
+      const apiBase = await resolveTopicMapperApiBase();
       const formData = new FormData();
       formData.append('pastPaper', pastPaperFile);
       formData.append('markScheme', markSchemeFile);
       
-      const response = await fetch(getTopicMapperApiUrl('/api/extract-questions'), {
+      const response = await fetch(`${apiBase}/api/extract-questions`, {
         method: 'POST',
         body: formData
       });
@@ -233,6 +238,8 @@ export default function TopicMapperPage() {
       }
       
       const data = await response.json();
+      assertMapperExtractionVersion(response.headers.get('X-Extraction-Version') || data.metadata?.extractionVersion);
+      setMapperApiBase(apiBase);
       setQuestions(data.questions);
       setCurrentStep(2);
     } catch (err: any) {
@@ -253,12 +260,16 @@ export default function TopicMapperPage() {
       setMappingError('Topics database not loaded');
       return;
     }
+    if (mapperApiBase === null) {
+      setMappingError('Please extract the questions using the updated mapper before mapping them.');
+      return;
+    }
     
     setMapping(true);
     setMappingError(null);
     
     try {
-      const response = await fetch(getTopicMapperApiUrl('/api/map-questions'), {
+      const response = await fetch(`${mapperApiBase}/api/map-questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questions, topics })

@@ -5,10 +5,11 @@ import { readMapperPdf } from '@/lib/mapper-pdf';
 import type { MapperSourceQuestion } from '@/lib/mapper-source';
 import type { SourceMarkingRow } from '@/lib/mapper-mark-scheme';
 import { matchSourceMarkingRows } from '@/lib/mapper-source-extraction';
+import { MAPPER_EXTRACTION_VERSION } from '@/lib/topic-mapper-contract';
 import { extractQuestionBatches, type ExtractedQuestion } from '@/lib/question-extraction';
 
 export const maxDuration = 300;
-const EXTRACTION_VERSION = 'source-layout-v4';
+const EXTRACTION_VERSION = MAPPER_EXTRACTION_VERSION;
 
 const ALLOWED_ORIGINS = [
   'https://quizgenerator.pastpaperpal.co.uk',
@@ -296,6 +297,8 @@ export async function POST(req: NextRequest) {
       questions,
       count: questions.length,
       metadata: {
+        extractionVersion: EXTRACTION_VERSION,
+        sourceCoverage: paper.sourceQuestions ? 'source-inventory' : 'ai-extraction',
         pastPaperLength: pastPaperText.length,
         markSchemeLength: markSchemeText.length,
         extractedAt: new Date().toISOString()

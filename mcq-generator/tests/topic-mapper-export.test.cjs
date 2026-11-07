@@ -7,26 +7,29 @@ const mapping = id => ({ question_id: id, primary_topic: '1', topic_name: 'Biodi
 const parts = (main, entries) => entries.map(([suffix, marks]) => ({ question_id: `Q${main}${suffix}`, text: 'Source question', source_marks: marks, source_part_ids: entries.map(([s]) => `Q${main}${s}`) }));
 const rows = (book, sheet = 'Question Mappings') => XLSX.utils.sheet_to_json(book.Sheets[sheet], { header: 1 });
 
-test('Biodiversity regression: totals, labelled parts and missing mapping rows survive XLSX round trip', () => {
+test('Biodiversity regression: original summary columns, totals and all mapping rows survive XLSX round trip', () => {
   const qs = [...parts(24, [['(a)(i)', 3], ['(a)(ii)', 3], ['(a)(iii)', 1], ['(b)(i)', 2], ['(b)(ii)', 4]]),
     ...parts(25, [['(i)', 3], ['(ii)', 2], ['(iii)', 3]]), ...parts(51, [['(i)', 2], ['(ii)', 2], ['(iii)', 3]])];
   const book = buildMappingsWorkbook(qs.slice(1).map(q => mapping(q.question_id.replace(/[()]/g, ''))), qs);
   const read = XLSX.read(XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }), { type: 'buffer' });
   assert.deepEqual(rows(read).slice(1).map(r => r.slice(0, 2)), [[24, 13], [25, 8], [51, 7]]);
-  assert.deepEqual(rows(read)[1].slice(4, 7), ['a(i)', '', 3]);
+  assert.deepEqual(rows(read)[1].slice(4, 6), ['', 3]);
+  assert.deepEqual(rows(read)[0].slice(0, 8), ['Question Number', 'Total Question Marks', 'whole', 'Marks', '', 'Marks', '', 'Marks']);
+  assert.ok(rows(read)[0].every(header => !/^Part \d+$/.test(header)));
   assert.equal(rows(read, 'Detailed Mappings').length, qs.length + 1);
-  assert.match(rows(read)[1].at(-1), /mapping missing/);
+  assert.match(rows(read, 'Detailed Mappings')[1][9], /mapping missing/);
+  assert.equal(rows(read, 'Detailed Mappings')[1][2], 'a(i)');
 });
 
 test('missing parts and parent/child overlaps cannot produce a complete total', () => {
   const qs = parts(1, [['(a)', 3], ['(b)', 4]]);
   let book = buildMappingsWorkbook([mapping(qs[0].question_id)], [qs[0]]);
   assert.equal(rows(book)[1][1], '?');
-  assert.match(rows(book)[1].at(-1), /Missing source parts/);
+  assert.match(rows(book, 'Detailed Mappings')[1][9], /Missing source parts/);
   const overlap = parts(1, [['(a)', 5], ['(a)(i)', 2]]);
   book = buildMappingsWorkbook(overlap.map(q => mapping(q.question_id)), overlap);
   assert.equal(rows(book)[1][1], '?');
-  assert.match(rows(book)[1].at(-1), /overlap/);
+  assert.match(rows(book, 'Detailed Mappings')[1][9], /overlap/);
 });
 
 test('does not substitute a parent allocation or guess unknown marks', () => {
@@ -48,9 +51,10 @@ test('canonical IDs match, compact hierarchy is labelled and review warnings per
   assert.equal(rows(buildMappingsWorkbook(result, qs))[1][1], '?');
 });
 
-test('legacy inputs expose unverified totals instead of presenting source coverage as checked', () => {
+test('mark totals stay numeric, while coverage notes remain in the existing detailed review fields', () => {
   const qs = [{ question_id: '1.1', text: 'Question [2]' }];
   const book = buildMappingsWorkbook([mapping('1.1')], qs);
-  assert.equal(rows(book)[1][1], '2 (unverified)');
-  assert.match(rows(book)[1].at(-1), /coverage unverified/);
+  assert.equal(rows(book)[1][1], 2);
+  assert.equal(rows(book, 'Detailed Mappings')[1][8], 'Yes');
+  assert.match(rows(book, 'Detailed Mappings')[1][9], /coverage unverified/);
 });

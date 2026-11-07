@@ -200,13 +200,13 @@ export function buildMappingsWorkbook(mappingResults: QuestionMapping[], questio
     return Math.max(maxCount, subPartCount);
   }, 0);
   const summaryWorksheet = XLSX.utils.aoa_to_sheet([]);
+  const groupReviewByMain = new Map<number, string[]>();
   const summaryHeaders = [
     'Question Number',
     'Total Question Marks',
     'whole',
     'Marks',
-    ...Array.from({ length: maxSubPartCount }, (_, i) => [`Part ${i + 1}`, 'Topic', 'Marks']).flat(),
-    'Review Notes',
+    ...Array.from({ length: maxSubPartCount }).flatMap(() => ['', 'Marks']),
   ];
 
   XLSX.utils.sheet_add_aoa(summaryWorksheet, [summaryHeaders], { origin: 'A1' });
@@ -235,11 +235,12 @@ export function buildMappingsWorkbook(mappingResults: QuestionMapping[], questio
     }));
     const unverified = !expectedIds.size;
     const totalMarks: string | number = marks.some(mark => mark === null) || missing.length || overlap
-      ? '?' : unverified ? `${knownTotalMarks} (unverified)` : knownTotalMarks;
-    const notes = [...new Set(orderedEntries.map(entry => entry.review_reason).filter(Boolean))];
+      ? '?' : knownTotalMarks;
+    const notes: string[] = [];
     if (missing.length) notes.push(`Missing source parts: ${missing.join(', ')}`);
     if (overlap) notes.push('Parent and child entries overlap; verify mark allocations.');
     if (unverified) notes.push('Source coverage unverified; check total against the question paper.');
+    groupReviewByMain.set(main, notes);
     const wholeTopic = [...new Set(wholeEntries.map(result => result.topic_name || result.primary_topic || '').filter(Boolean))].join('; ');
     const wholeMarks = wholeEntries.length
       ? marks.slice(0, wholeEntries.length).some(mark => mark === null)
@@ -251,15 +252,13 @@ export function buildMappingsWorkbook(mappingResults: QuestionMapping[], questio
     subPartEntries.forEach(result => {
       const mark = getQuestionMarks(questionById.get(result.question_id));
 
-      rowData.push(parsedById.get(result.question_id)!.subLabel);
       rowData.push(result.topic_name || result.primary_topic || '');
       rowData.push(mark === null ? '?' : mark);
     });
 
-    while (rowData.length < summaryHeaders.length - 1) {
+    while (rowData.length < summaryHeaders.length) {
       rowData.push('');
     }
-    rowData.push(notes.join(' '));
 
     XLSX.utils.sheet_add_aoa(summaryWorksheet, [rowData], { origin: `A${rowIndex + 2}` });
     });
@@ -269,12 +268,12 @@ export function buildMappingsWorkbook(mappingResults: QuestionMapping[], questio
     { wch: 24 },
     { wch: 35 },
     { wch: 12 },
-    ...Array.from({ length: maxSubPartCount }).flatMap(() => [{ wch: 12 }, { wch: 35 }, { wch: 12 }]),
-    { wch: 70 },
+    ...Array.from({ length: maxSubPartCount }).flatMap(() => [{ wch: 35 }, { wch: 12 }]),
   ];
 
   const detailRows = mappingResults.map(result => {
     const parsed = parsedById.get(result.question_id)!;
+    const groupReview = groupReviewByMain.get(parsed.main) || [];
 
     return {
       'Question ID': result.question_id,
@@ -285,8 +284,8 @@ export function buildMappingsWorkbook(mappingResults: QuestionMapping[], questio
       'Topic Name': result.topic_name || '',
       'Secondary Topic': result.secondary_topic || '',
       'Marks': getQuestionMarks(questionById.get(result.question_id)) ?? '?',
-      'Needs Review': result.needs_review ? 'Yes' : 'No',
-      'Review Reason': result.review_reason || '',
+      'Needs Review': result.needs_review || groupReview.length ? 'Yes' : 'No',
+      'Review Reason': [result.review_reason, ...groupReview].filter(Boolean).join(' '),
       'Reason': result.reason || '',
     };
   });
