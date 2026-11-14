@@ -4,10 +4,11 @@ import { RetrievalQuizValidationError } from '@/lib/retrieval-quiz-errors';
 import { uploadToR2, deleteFromR2, getSignedR2Url } from '@/lib/r2-client';
 
 export const runtime = 'nodejs';
-// Three generation calls run concurrently, each with a 45-second timeout.
+// Generation and its single retry share a deadline; allow time for uploads and cleanup.
 export const maxDuration = 90;
 
 export async function POST(request: NextRequest) {
+  const started = Date.now();
   const uploadedKeys: string[] = [];
   
   try {
@@ -99,7 +100,8 @@ export async function POST(request: NextRequest) {
     const result = await generateAndShuffleRetrievalQuiz(
       apiKey,
       topicImages,
-      educationLevel
+      educationLevel,
+      started + 70_000
     );
 
     console.log("✅ Successfully generated and shuffled retrieval quiz");

@@ -27,7 +27,9 @@ function harness(intercept = async () => undefined) {
         assert.equal(options.timeout, 45000);
         assert.equal(options.maxRetries, 0);
       }
-      chat = { completions: { create: async (payload) => {
+      chat = { completions: { create: async (payload, options) => {
+        assert.equal(options.maxRetries, 0);
+        assert.ok(options.timeout > 0 && options.timeout <= 45000);
         calls.push(payload);
         const content = payload.messages[1].content;
         const image = content.find(p => p.type === 'image_url').image_url.url;
@@ -36,7 +38,7 @@ function harness(intercept = async () => undefined) {
         const count = attempts[`${topic}:${kind}`] = (attempts[`${topic}:${kind}`] || 0) + 1;
         assert.equal(kind, 'retrieval_topic', 'No AI review or repair calls are allowed');
         const value = fixture(topic);
-        return (await intercept({ payload, topic, kind, count, value })) ?? completion(value);
+        return (await intercept({ payload, topic, kind, count, value, options })) ?? completion(value);
       } } };
     },
   });
@@ -123,13 +125,13 @@ test('rejects malformed responses locally without accepting a separate answer ke
   }
 });
 
-test('malformed responses fail locally without regeneration or AI review', async () => {
+test('malformed responses stop after one retry per topic', async () => {
   const api = harness(async ({ value }) => { value.questions[0].distractors = []; });
   await assert.rejects(api.generateAndShuffleRetrievalQuiz('test-only', images, 'GCSE'), errors.RetrievalQuizValidationError);
-  assert.equal(api.calls.length, 3);
+  assert.equal(api.calls.length, 6);
 });
 
-test('refusal, truncation, missing content and API errors never trigger extra calls', async t => {
+test('only recoverable output failures receive one retry', async t => {
   for (const mode of ['refusal', 'length', 'empty', 'outage', 'invalid-json']) {
     await t.test(mode, async () => {
       const api = harness(async () => {
@@ -139,9 +141,54 @@ test('refusal, truncation, missing content and API errors never trigger extra ca
         return { choices: [{ finish_reason: 'stop', message: { content: mode === 'empty' ? null : '{' } }] };
       });
       await assert.rejects(api.generateAndShuffleRetrievalQuiz('test-only', images, 'GCSE'));
-      assert.equal(api.calls.length, 3);
+      assert.equal(api.calls.length, ['refusal', 'outage'].includes(mode) ? 3 : 6);
     });
   }
+});
+
+test('only the invalid topic is retried and its replacement retains correct answer mapping', async () => {
+  const api = harness(async ({ topic, count, value, payload }) => {
+    if (topic === 'topic1' && count === 1) value.questions.pop();
+    if (topic === 'topic1' && count === 2) assert.match(payload.messages[1].content[0].text, /received 9/);
+  });
+  const result = await api.generateAndShuffleRetrievalQuiz('test-only', images, 'GCSE');
+  assert.equal(api.calls.length, 4);
+  assert.deepEqual(Object.values(api.attempts), [1, 2, 1]);
+  result.questions.forEach((q, i) => assert.equal(q.options[q.correctAnswer], `Correct topic${Math.floor(i / 10)} item${i % 10 + 1}`));
+});
+
+test('retry uses remaining shared time rather than a fresh timeout', async () => {
+  const api = harness(async ({ topic, count, value, options }) => {
+    assert.ok(options.timeout <= 20000);
+    if (topic === 'topic1' && count === 1) value.questions = [];
+  });
+  await api.generateAndShuffleRetrievalQuiz('test-only', images, 'GCSE', Date.now() + 20000);
+  assert.equal(api.calls.length, 4);
+});
+
+test('deadline aborts in-flight requests without retrying transport failures', async () => {
+  let aborted = 0;
+  const api = harness(async ({ options }) => {
+    await new Promise((resolve, reject) => {
+      // A real timer keeps the test alive while AbortSignal.timeout is unref'd.
+      const guard = setTimeout(() => reject(new Error('Abort signal did not fire')), 1000);
+      const abort = () => { clearTimeout(guard); aborted++; reject(new Error('Request aborted at deadline')); };
+      if (options.signal.aborted) abort();
+      else options.signal.addEventListener('abort', abort, { once: true });
+    });
+  });
+  await assert.rejects(api.generateAndShuffleRetrievalQuiz('test-only', images, 'GCSE', Date.now() + 100), /aborted at deadline/);
+  assert.equal(aborted, 3);
+  assert.equal(api.calls.length, 3);
+});
+
+test('low remaining budget skips retry and expired budget makes no API calls', async () => {
+  const api = harness(async ({ value }) => { value.questions = []; });
+  await assert.rejects(api.generateAndShuffleRetrievalQuiz('test-only', images, 'GCSE', Date.now() + 9000));
+  assert.equal(api.calls.length, 3);
+  const expired = harness();
+  await assert.rejects(expired.generateAndShuffleRetrievalQuiz('test-only', images, 'GCSE', Date.now() - 1));
+  assert.equal(expired.calls.length, 0);
 });
 
 test('all three topics start concurrently and a failure waits for in-flight generation before cleanup', async () => {

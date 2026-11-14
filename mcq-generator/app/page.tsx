@@ -285,8 +285,6 @@ export default function Home() {
           </div>
         </div>
 
-        <QuizGuide />
-
         {/* Error Message */}
         {error && (
           <div className="mt-6 bg-red-50 border-l-4 border-red-500 rounded-lg p-5 shadow-sm fade-in">
@@ -350,6 +348,7 @@ export default function Home() {
             <QuestionDisplay questions={questions} />
           </div>
         )}
+        <QuizGuide />
       </div>
     </main>
   );

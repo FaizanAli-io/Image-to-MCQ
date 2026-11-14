@@ -61,7 +61,7 @@ function normalized(value: string): string {
 export function validateRetrievalTopic(value: unknown): DraftTopic {
   const topic = record(value);
   if (!Array.isArray(topic.questions) || topic.questions.length !== 10) {
-    throw new InvalidDraft('A topic must contain exactly 10 questions.');
+    throw new InvalidDraft(`A topic must contain exactly 10 questions; received ${Array.isArray(topic.questions) ? topic.questions.length : 'no questions array'}.`);
   }
   const questions = topic.questions.map((value, index) => {
     const q = record(value);
@@ -108,7 +108,7 @@ function prepareTopic(topic: DraftTopic): PreparedTopic {
   };
 }
 
-async function requestJSON(client: OpenAI, image: string[], prompt: string, name: string, schema: Record<string, unknown>): Promise<unknown> {
+async function requestJSON(client: OpenAI, image: string[], prompt: string, name: string, schema: Record<string, unknown>, timeout: number): Promise<unknown> {
   const response = await client.chat.completions.create({
     model: RETRIEVAL_MODEL,
     reasoning_effort: 'low',
@@ -121,10 +121,11 @@ async function requestJSON(client: OpenAI, image: string[], prompt: string, name
       ] },
     ],
     response_format: { type: 'json_schema', json_schema: { name, strict: true, schema } },
-  });
+  }, { timeout, maxRetries: 0, signal: AbortSignal.timeout(timeout) });
   const choice = response.choices[0];
-  if (!choice || choice.message.refusal || choice.finish_reason !== 'stop' || !choice.message.content) {
-    throw new RetrievalQuizValidationError();
+  if (choice?.message.refusal) throw new RetrievalQuizValidationError();
+  if (!choice || choice.finish_reason !== 'stop' || !choice.message.content) {
+    throw new InvalidDraft(`Incomplete response: finish_reason=${choice?.finish_reason ?? 'missing'}; output_tokens=${response.usage?.completion_tokens ?? 'unknown'}.`);
   }
   try {
     return JSON.parse(choice.message.content);
@@ -133,7 +134,7 @@ async function requestJSON(client: OpenAI, image: string[], prompt: string, name
   }
 }
 
-async function generateTopic(client: OpenAI, image: string[], label: string, level: Level): Promise<PreparedTopic> {
+async function generateTopic(client: OpenAI, image: string[], label: string, level: Level, deadline: number): Promise<PreparedTopic> {
   const prompt = `Generate exactly 10 ${level} science retrieval MCQs for ${label}, based on the submitted source image.
 Derive a descriptive topic name from the image. Use plain text, no markdown or option letters.
 Questions 1-5: AO1 recall and understanding. Questions 6-10: AO2 application to an unfamiliar example with data interpretation or specific cause/effect reasoning.
@@ -150,26 +151,39 @@ For numerical scenarios, make the values, units and words consistent: 1000 to 80
 Every distractor must be false for the exact wording, not merely different from the intended teaching point. Narrow the stem when several processes, organelles or organisms could fit. Keep distractors in the same scientific category, using plausible misconceptions rather than absurd or unrelated options.
 Do not use all/none of the above, references to option positions, or prelabelled options. Do not generate an answer-letter sequence or a separate answer key. Code handles option order.
 If the source is unreadable or insufficient, return an empty questions array instead of inventing source content (the application will reject it).`;
-  try {
-    const generated = await requestJSON(client, image, image.length > 1 ? `${prompt}\nThe ${image.length} supplied images are ordered pages of this one topic. Use relevant facts across all pages together to generate the same total of 10 questions; do not generate 10 per page.` : prompt, 'retrieval_topic', TOPIC_SCHEMA);
-    return prepareTopic(validateRetrievalTopic(generated));
-  } catch (error) {
-    if (!(error instanceof InvalidDraft)) throw error;
-    console.warn(`Retrieval ${label}: invalid response structure: ${error.message}`);
-    throw new RetrievalQuizValidationError();
+  const sourcePrompt = image.length > 1 ? `${prompt}\nThe ${image.length} supplied images are ordered pages of this one topic. Use relevant facts across all pages together to generate the same total of 10 questions; do not generate 10 per page.` : prompt;
+  let issue = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0 || (attempt > 0 && remaining < 10_000)) {
+      console.warn(`Retrieval ${label}: generation budget exhausted; no further attempt`);
+      throw new RetrievalQuizValidationError();
+    }
+    try {
+      const retryPrompt = issue ? `${sourcePrompt}\nThe previous response failed validation: ${issue}\nRe-read all supplied pages and generate a complete replacement of 10 questions for this topic (5 AO1, 5 AO2). Keep source grounding, unique questions and one unambiguously correct option. Do not invent facts or duplicate questions to meet the count; return an empty array if the sources genuinely cannot support the quiz. Keep wording concise.` : sourcePrompt;
+      const generated = await requestJSON(client, image, retryPrompt, 'retrieval_topic', TOPIC_SCHEMA, Math.min(45_000, remaining));
+      return prepareTopic(validateRetrievalTopic(generated));
+    } catch (error) {
+      // Only malformed model output is retried, never refusals, network failures or SDK timeouts.
+      if (!(error instanceof InvalidDraft)) throw error;
+      issue = error.message;
+      console.warn(`Retrieval ${label}: attempt ${attempt + 1} failed validation: ${issue}`);
+    }
   }
+  throw new RetrievalQuizValidationError();
 }
 
-export async function generateCompleteRetrievalQuiz(apiKey: string, images: [string, string, string] | [string[], string[], string[]], level: Level) {
+export async function generateCompleteRetrievalQuiz(apiKey: string, images: [string, string, string] | [string[], string[], string[]], level: Level, deadlineMs?: number) {
   const groups = images.map(image => typeof image === 'string' ? [image] : image);
   if (groups.length !== 3 || !groups.every(group => Array.isArray(group) && group.length >= 1 && group.length <= 3 && group.every(image => typeof image === 'string' && image.trim()))) {
     throw new Error('Retrieval quiz requires three topics with 1 to 3 source images each.');
   }
   if (level !== 'GCSE' && level !== 'A-LEVEL') throw new Error('Invalid education level.');
-  // Exactly one request per topic; no automatic retries extending the request lifetime.
+  // All initial attempts and at most one retry per topic share this generation deadline.
+  const deadline = Math.min(deadlineMs ?? Infinity, Date.now() + 65_000);
   const client = new OpenAI({ apiKey, baseURL: 'https://api.openai.com/v1', timeout: 45000, maxRetries: 0 });
   // Wait for every topic before route cleanup can delete source images used by other calls.
-  const results = await Promise.allSettled(groups.map((image, i) => generateTopic(client, image, `Topic ${'ABC'[i]}`, level)));
+  const results = await Promise.allSettled(groups.map((image, i) => generateTopic(client, image, `Topic ${'ABC'[i]}`, level, deadline)));
   const topics = results.map(result => {
     if (result.status === 'rejected') throw result.reason;
     return result.value;
@@ -182,8 +196,8 @@ export async function generateCompleteRetrievalQuiz(apiKey: string, images: [str
   };
 }
 
-export async function generateAndShuffleRetrievalQuiz(apiKey: string, images: [string, string, string] | [string[], string[], string[]], level: Level) {
-  const quiz = await generateCompleteRetrievalQuiz(apiKey, images, level);
+export async function generateAndShuffleRetrievalQuiz(apiKey: string, images: [string, string, string] | [string[], string[], string[]], level: Level, deadlineMs?: number) {
+  const quiz = await generateCompleteRetrievalQuiz(apiKey, images, level, deadlineMs);
   const positions = generateRetrievalAnswerSequence();
   const questions: GeneratedQuestion[] = [];
   for (const topic of quiz.topics) {
