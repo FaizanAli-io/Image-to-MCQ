@@ -10,7 +10,9 @@ import { GeneratedQuestion, QuizConfig } from '@/lib/types';
 import { generatePDF, generateRetrievalPDF } from '@/lib/pdf-utils';
 import { loadMiniQuizImages, miniQuizFilename } from '@/lib/mini-quiz-export';
 import { retrievalQuizFilename } from '@/lib/retrieval-export';
-import { Download } from 'lucide-react';
+import { Download, BookOpen, Rocket } from 'lucide-react';
+import Image from 'next/image';
+import QuizGuide from '@/components/QuizGuide';
 
 export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<File[] | File | null>(null);
@@ -164,65 +166,31 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      {/* Fixed Header */}
-      <header className="sticky top-0 z-50 bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-                <span className="text-xl">🎓</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">MCQ Generator</h1>
-                <p className="text-xs text-slate-600">Revision Specific Quiz Generator</p>
-              </div>
-            </div>
-            
-            {/* Navigation to Topic Mapper */}
-            <a
-              href="/topic-mapper"
-              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-              </svg>
-              AI Mapper
-            </a>
-          </div>
-        </div>
+    <main className="quiz-home min-h-screen bg-white">
+      <header className="quiz-header">
+        <a href="/" className="quiz-brand">Past Paper Pal<span>REVISION TOOLS · BY HI TUTORING</span></a>
+        <a href="/topic-mapper" className="mapper-link"><BookOpen size={22} /> AI Mapper</a>
       </header>
-
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Transform Your Study Materials Into<br />
-            <span className="text-blue-600">Professional Quizzes in Seconds</span>
-          </h2>
-          <div className="flex items-center justify-center gap-4 mt-8 text-sm text-gray-600">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">📤</span>
-              <span>Upload Image</span>
-            </div>
-            <span className="text-gray-400">→</span>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🤖</span>
-              <span>Specific Quiz Generation</span>
-            </div>
-            <span className="text-gray-400">→</span>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">📥</span>
-              <span>Download PDF</span>
-            </div>
-          </div>
+      <section className="quiz-hero">
+        <h1>Quiz Generator</h1>
+        <p>Turn <strong>any</strong> revision resource into <strong>GCSE or A-level</strong> practice questions.</p>
+        <div className="quiz-steps">
+          {[
+            { image: 'take_picture', title: 'Take a screenshot or photo' },
+            { image: 'upload-image', title: 'Upload your image(s)' },
+            { image: 'download-quiz', title: 'Download your quiz' },
+          ].map(({ image, title }, i) => <div className="quiz-step" key={title}>
+            <div className="step-picture"><Image src={`/data/${image}.png`} alt="" width={600} height={360} sizes="(max-width: 700px) 90vw, 30vw" /></div>
+            <h2><span>{i + 1}</span>{title}</h2>
+          </div>)}
         </div>
+        <a href="#quiz-setup" className="create-quiz"><Rocket aria-hidden="true" /> Create quiz now</a>
       </section>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
 
-        <div className="grid lg:grid-cols-[1fr_400px] gap-6">
+        <div id="quiz-setup" className="quiz-setup grid lg:grid-cols-[1fr_400px] gap-6">
           {/* Left Column - Image Upload (65%) */}
           <div className="space-y-4">
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
@@ -282,7 +250,7 @@ export default function Home() {
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <span className="text-blue-600">⚙️</span>
-                Quiz Configuration
+                Quiz Settings
               </h3>
               <QuestionTypeSelector config={config} onChange={(nextConfig) => {
                 if (nextConfig.quizType !== config.quizType) {
@@ -310,12 +278,14 @@ export default function Home() {
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
-                  🚀 Generate Questions
+                  🚀 Generate Quiz
                 </span>
               )}
             </button>
           </div>
         </div>
+
+        <QuizGuide />
 
         {/* Error Message */}
         {error && (
