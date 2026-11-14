@@ -10,16 +10,20 @@ export function getTopicMapperApiUrl(path: string): string {
 /** Check the deployed extractor before uploading PDFs. Never fall back to a
  * separately deployed API or retry a paid extraction on another host. */
 export async function resolveTopicMapperApiBase(fetcher: typeof fetch = fetch): Promise<string> {
+  let workerOffline = false;
   try {
     const response = await fetcher(getTopicMapperApiUrl('/api/extract-questions'), {
       cache: 'no-store', signal: AbortSignal.timeout(10000),
     });
     if (response.ok) {
       const data = await response.json();
-      if (data.extractionVersion === MAPPER_EXTRACTION_VERSION) return '';
+      if (data.extractionVersion === MAPPER_EXTRACTION_VERSION) {
+        if (data.workerAvailable !== false) return '';
+        workerOffline = true;
+      }
     }
   } catch {
     // Report the unavailable service without uploading to another backend.
   }
-  throw new Error('The updated mapper extraction service is unavailable. Please contact support to check the server deployment. No PDFs were uploaded.');
+  throw new Error(workerOffline ? 'The mapper worker is offline. Please contact support to start it. No PDFs were uploaded.' : 'The updated mapper extraction service is unavailable. Please contact support to check the server deployment. No PDFs were uploaded.');
 }

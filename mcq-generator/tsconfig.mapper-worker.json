@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.worker.json",
+  "compilerOptions": { "outDir": ".mapper-worker" },
+  "include": ["workers/mapper-worker.ts"]
+}

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Download, Beaker, Atom, FlaskConical, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { resolveTopicMapperApiBase } from '@/lib/topic-mapper-api';
 import { assertMapperExtractionVersion } from '@/lib/topic-mapper-contract';
+import { newMapperJobId, pollMapperJob, readMapperResponse } from '@/lib/mapper-job-client';
+import type { MapperJobKind, MapperJobView } from '@/lib/mapper-job-types';
 import { buildMappingsWorkbook, reconcileMappings, type Question, type QuestionMapping } from '@/lib/topic-mapper-export';
 
 // Subject configuration
@@ -103,6 +105,15 @@ const getSubjectSpecLabel = (level: ExamLevel, selectedSubject: SubjectKey): str
   return SUBJECTS[selectedSubject].specLabel;
 };
 
+const MAPPER_SAVED_JOB = 'pastpaperpal-mapper-job-v1';
+interface SavedMapperJob { id: string; kind: MapperJobKind; examLevel: ExamLevel; subject: SubjectKey; sourcePdfName: string | null; emailAttempted?: boolean }
+function savedMapperJob(): SavedMapperJob | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(MAPPER_SAVED_JOB) || 'null');
+    return saved && /^[a-f0-9]{64}$/.test(saved.id) && ['extraction', 'mapping'].includes(saved.kind) && ['olevel', 'alevel'].includes(saved.examLevel) && ['biology', 'chemistry', 'physics'].includes(saved.subject) ? saved : null;
+  } catch { return null; }
+}
+
 export default function TopicMapperPage() {
   // Subject selection
   const [examLevel, setExamLevel] = useState<ExamLevel>('olevel');
@@ -135,8 +146,87 @@ export default function TopicMapperPage() {
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   
+  const activePoll = useRef<AbortController | null>(null);
+  const [jobMessage, setJobMessage] = useState('');
+  const [canReconnect, setCanReconnect] = useState(false);
+
+  useEffect(() => {
+    const saved = savedMapperJob();
+    if (saved) void observeSavedJob(saved);
+    return () => activePoll.current?.abort();
+    // Reattach once on mount; state updates must not restart the saved job's polling loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function observeSavedJob(saved: SavedMapperJob) {
+    activePoll.current?.abort();
+    const controller = new AbortController();
+    activePoll.current = controller;
+    let terminal = false;
+    setSubject(saved.subject);
+    setExamLevel(saved.examLevel);
+    setCanReconnect(false);
+    setExtractionError(null);
+    setMappingError(null);
+    setExtracting(saved.kind === 'extraction');
+    setMapping(saved.kind === 'mapping');
+    setCurrentStep(saved.kind === 'extraction' ? 1 : 2);
+    try {
+      const job = await pollMapperJob(saved.id, progress => {
+        if (controller.signal.aborted) return;
+        setJobMessage(progress.workerAvailable === false ? 'Your job is saved. Waiting for the mapper worker to reconnect...' :
+          progress.status === 'queued' ? 'Your job is saved and queued...' :
+          saved.kind === 'mapping' ? 'Mapping questions: ' + progress.completed + ' of ' + progress.total : 'Extracting questions from your PDFs...');
+      }, controller.signal);
+      if (controller.signal.aborted) return;
+      terminal = true;
+      if (job.status === 'failed') {
+        localStorage.removeItem(MAPPER_SAVED_JOB);
+        throw new Error(job.error || 'Mapper processing failed.');
+      }
+      const data = job.result;
+      if (!data?.questions) throw new Error('The saved mapper result is incomplete.');
+      setQuestions(data.questions);
+      setMapperApiBase('');
+      setJobMessage('');
+      if (saved.kind === 'extraction') {
+        assertMapperExtractionVersion(data.metadata?.extractionVersion);
+        setCurrentStep(2);
+      } else {
+        if (!data.results || !data.stats) throw new Error('The saved mapping result is incomplete.');
+        const reviewedResults = reconcileMappings(data.results, data.questions);
+        const reviewedStats = { ...data.stats, total: reviewedResults.length,
+          needsReview: reviewedResults.filter(result => result.needs_review).length,
+          cleanMappings: reviewedResults.filter(result => !result.needs_review && result.primary_topic !== null).length,
+        };
+        setResults(reviewedResults);
+        setStats(reviewedStats);
+        setCurrentStep(3);
+        if (!saved.emailAttempted) {
+          saved.emailAttempted = true;
+          localStorage.setItem(MAPPER_SAVED_JOB, JSON.stringify(saved));
+          await sendEmailWithExcel(reviewedResults, reviewedStats, data.questions, saved.subject, saved.sourcePdfName);
+        }
+      }
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        const message = error instanceof Error ? error.message : 'Could not reconnect to the mapper.';
+        if (saved.kind === 'extraction') setExtractionError(message);
+        else setMappingError(message);
+        setCanReconnect(!terminal);
+        setJobMessage(!terminal ? 'Your job ID is saved. Reconnect to check its progress without uploading again.' : '');
+      }
+    } finally {
+      if (!controller.signal.aborted) { setExtracting(false); setMapping(false); }
+    }
+  }
+
   // Reset function to start over (keeps subject selection)
   const handleReset = () => {
+    activePoll.current?.abort();
+    localStorage.removeItem(MAPPER_SAVED_JOB);
+    setJobMessage('');
+    setCanReconnect(false);
     setPastPaperFile(null);
     setMarkSchemeFile(null);
     setExtracting(false);
@@ -210,97 +300,66 @@ export default function TopicMapperPage() {
     setExtractionError(null);
   };
 
-  // Extract questions from PDFs
+  // Submit only once; status requests never repeat extraction or mapping.
   const extractQuestions = async () => {
-    if (!pastPaperFile || !markSchemeFile) {
-      setExtractionError('Please upload both PDF files');
-      return;
-    }
-    
+    if (!pastPaperFile || !markSchemeFile || !subject) return;
     setExtracting(true);
     setExtractionError(null);
     setMapperApiBase(null);
-    
+    const submission = new AbortController();
+    activePoll.current?.abort();
+    activePoll.current = submission;
     try {
       const apiBase = await resolveTopicMapperApiBase();
+      if (submission.signal.aborted) return;
+      const saved: SavedMapperJob = { id: newMapperJobId(), kind: 'extraction', examLevel, subject, sourcePdfName: pastPaperFile.name };
+      localStorage.setItem(MAPPER_SAVED_JOB, JSON.stringify(saved));
       const formData = new FormData();
       formData.append('pastPaper', pastPaperFile);
       formData.append('markScheme', markSchemeFile);
-      
-      const response = await fetch(`${apiBase}/api/extract-questions`, {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Extraction failed');
-      }
-      
-      const data = await response.json();
-      assertMapperExtractionVersion(response.headers.get('X-Extraction-Version') || data.metadata?.extractionVersion);
-      setMapperApiBase(apiBase);
-      setQuestions(data.questions);
-      setCurrentStep(2);
-    } catch (err: any) {
-      setExtractionError(err.message);
-    } finally {
-      setExtracting(false);
-    }
+      const response = await fetch(apiBase + '/api/extract-questions', { method: 'POST', headers: { 'X-Mapper-Request-Id': saved.id }, body: formData, signal: submission.signal });
+      const data = await readMapperResponse<MapperJobView>(response);
+      if (submission.signal.aborted) return;
+      assertMapperExtractionVersion(response.headers.get('X-Extraction-Version'));
+      if (data.jobId !== saved.id) throw new Error('The server returned an unexpected mapper job.');
+      await observeSavedJob(saved);
+    } catch (error) {
+      if (submission.signal.aborted) return;
+      setExtractionError(error instanceof Error ? error.message : 'Could not submit extraction.');
+      setCanReconnect(Boolean(savedMapperJob()));
+    } finally { if (activePoll.current === submission) setExtracting(false); }
   };
 
-  // Run mapping
   const runMapping = async () => {
-    if (!questions.length) {
-      setMappingError('No questions to map');
+    if (!questions.length || !topics.length || !subject || mapperApiBase === null) {
+      setMappingError('Please extract questions and load the topic list first.');
       return;
     }
-    
-    if (!topics.length) {
-      setMappingError('Topics database not loaded');
-      return;
-    }
-    if (mapperApiBase === null) {
-      setMappingError('Please extract the questions using the updated mapper before mapping them.');
-      return;
-    }
-    
     setMapping(true);
     setMappingError(null);
-    
+    const submission = new AbortController();
+    activePoll.current?.abort();
+    activePoll.current = submission;
     try {
-      const response = await fetch(`${mapperApiBase}/api/map-questions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questions, topics })
-      });
-      
-      if (!response.ok) throw new Error('Mapping failed');
-      
-      const data = await response.json();
-      const reviewedResults = reconcileMappings(data.results, questions);
-      const reviewedStats = { ...data.stats, total: reviewedResults.length,
-        needsReview: reviewedResults.filter(result => result.needs_review).length,
-        cleanMappings: reviewedResults.filter(result => !result.needs_review && result.primary_topic !== null).length,
-      };
-      setResults(reviewedResults);
-      setStats(reviewedStats);
-      setCurrentStep(3);
-      
-      // Automatically send email with Excel attachment
-      await sendEmailWithExcel(reviewedResults, reviewedStats);
-      
-    } catch (err: any) {
-      setMappingError(err.message);
-    } finally {
-      setMapping(false);
-    }
+      const saved: SavedMapperJob = { id: newMapperJobId(), kind: 'mapping', examLevel, subject, sourcePdfName: pastPaperFile?.name || savedMapperJob()?.sourcePdfName || null };
+      localStorage.setItem(MAPPER_SAVED_JOB, JSON.stringify(saved));
+      const response = await fetch(mapperApiBase + '/api/map-questions', { method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Mapper-Request-Id': saved.id }, body: JSON.stringify({ questions, topics }), signal: submission.signal });
+      const data = await readMapperResponse<MapperJobView>(response);
+      if (submission.signal.aborted) return;
+      if (data.jobId !== saved.id) throw new Error('The server returned an unexpected mapper job.');
+      await observeSavedJob(saved);
+    } catch (error) {
+      if (submission.signal.aborted) return;
+      setMappingError(error instanceof Error ? error.message : 'Could not submit mapping.');
+      setCanReconnect(Boolean(savedMapperJob()));
+    } finally { if (activePoll.current === submission) setMapping(false); }
   };
-  
+
   // Send email with Excel attachment
-  const sendEmailWithExcel = async (mappingResults: QuestionMapping[], mappingStats: any) => {
+  const sendEmailWithExcel = async (mappingResults: QuestionMapping[], mappingStats: any, sourceQuestions = questions, selectedSubject = subject, sourcePdfName = pastPaperFile?.name || null) => {
     try {
-      const workbook = buildMappingsWorkbook(mappingResults, questions);
+      const workbook = buildMappingsWorkbook(mappingResults, sourceQuestions);
       const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
       const base64Buffer = Buffer.from(excelBuffer).toString('base64');
       
@@ -310,8 +369,8 @@ export default function TopicMapperPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           excelBuffer: base64Buffer,
-          filename: `mapped_questions_${subject || 'output'}.xlsx`,
-          sourcePdfName: pastPaperFile?.name || null,
+          filename: `mapped_questions_${selectedSubject || 'output'}.xlsx`,
+          sourcePdfName,
           stats: mappingStats
         })
       });
@@ -319,7 +378,7 @@ export default function TopicMapperPage() {
       if (emailResponse.ok) {
         console.log('Email sent successfully');
       } else {
-        const errorData = await emailResponse.json();
+        const errorData = await readMapperResponse<{ error?: string }>(emailResponse);
         console.error('Email sending failed:', errorData.error);
       }
     } catch (error) {
@@ -347,6 +406,10 @@ export default function TopicMapperPage() {
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${subjectConfig ? subjectConfig.bgGradient : 'from-gray-50 to-gray-100'}`}>
+      {(jobMessage || canReconnect) && <div className="mx-auto max-w-7xl px-8 py-4" role="status">
+        <p>{jobMessage}</p>
+        {canReconnect && <button className="mt-2 underline font-semibold" onClick={() => { const saved = savedMapperJob(); if (saved) void observeSavedJob(saved); }}>Reconnect to saved job</button>}
+      </div>}
       {/* Header */}
       <div className={`bg-gradient-to-r ${subjectConfig ? subjectConfig.gradient : 'from-gray-600 to-gray-700'} text-white shadow-lg transition-all duration-500`}>
         <div className="max-w-7xl mx-auto px-8 py-6">
@@ -575,7 +638,7 @@ export default function TopicMapperPage() {
 
               <button
                 onClick={extractQuestions}
-                disabled={extracting || !pastPaperFile || !markSchemeFile}
+                disabled={extracting || canReconnect || !pastPaperFile || !markSchemeFile}
                 className={`w-full bg-gradient-to-r ${subjectConfig.activeColor} text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]`}
               >
                 {extracting ? (
@@ -659,7 +722,7 @@ export default function TopicMapperPage() {
 
               <button
                 onClick={runMapping}
-                disabled={mapping || !topics.length}
+                disabled={mapping || canReconnect || !topics.length}
                 className={`w-full bg-gradient-to-r ${subjectConfig.activeColor} text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]`}
               >
                 {mapping ? (

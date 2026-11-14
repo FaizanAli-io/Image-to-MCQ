@@ -8,6 +8,8 @@
     "start": "next start",
     "worker:build": "tsc -p tsconfig.worker.json",
     "worker:start": "node .worker/workers/mini-quiz-worker.js",
+    "mapper:build": "tsc -p tsconfig.mapper-worker.json",
+    "mapper:start": "node .mapper-worker/workers/mapper-worker.js",
     "lint": "eslint"
   },
   "dependencies": {

@@ -16,6 +16,8 @@
 # next.js
 /.next/
 /.worker/
+/.mapper-worker/
+/.mapper-jobs/
 /.mini-quiz-jobs/
 /out/
 
