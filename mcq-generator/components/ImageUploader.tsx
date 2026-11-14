@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Upload, X, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface ImageUploaderProps {
@@ -13,9 +13,11 @@ interface ImageUploaderProps {
   multipleImages?: boolean;
   maxImages?: number;
   imageLabels?: 'topics' | 'pages';
+  topicLabel?: string;
 }
 
-export default function ImageUploader({ onImageUpload, multipleImages = false, maxImages = 3, imageLabels = 'topics' }: ImageUploaderProps) {
+export default function ImageUploader({ onImageUpload, multipleImages = false, maxImages = 3, imageLabels = 'topics', topicLabel }: ImageUploaderProps) {
+  const uploadId = useId();
   const [previews, setPreviews] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -220,7 +222,7 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
             {multipleImages && !isProcessing && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 max-w-md">
                 <p className="text-xs text-blue-800 font-medium">
-                  {imageLabels === 'topics' ? 'Retrieval Quiz requires 3 images:' : 'Mini Quiz accepts 1 to 10 pages:'}
+                  {topicLabel ? `${topicLabel}: upload 1 to ${maxImages} pages` : imageLabels === 'topics' ? 'Retrieval Quiz requires 3 images:' : 'Mini Quiz accepts 1 to 10 pages:'}
                 </p>
                 <p className="text-xs text-blue-700 mt-1">
                   {imageLabels === 'topics' ? 'Topic A / Topic B / Topic C' : 'All pages are used together for one quiz'}
@@ -233,11 +235,11 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
               multiple={multipleImages}
               onChange={handleChange}
               className="hidden"
-              id="file-upload"
+              id={uploadId}
               disabled={isProcessing}
             />
             <label
-              htmlFor="file-upload"
+              htmlFor={uploadId}
               className={`px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-indigo-700 active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md ${
                 isProcessing ? 'opacity-50 cursor-wait pointer-events-none' : ''
               }`}
@@ -339,10 +341,10 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
                 multiple
                 onChange={handleChange}
                 className="hidden"
-                id="file-upload-more"
+                id={`${uploadId}-more`}
               />
               <label
-                htmlFor="file-upload-more"
+                htmlFor={`${uploadId}-more`}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-dashed border-gray-300 text-gray-700 text-sm font-medium rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-700 transition-all duration-150"
               >
                 <Upload className="w-4 h-4" />

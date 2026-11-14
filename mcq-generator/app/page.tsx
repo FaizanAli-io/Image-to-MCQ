@@ -14,6 +14,7 @@ import { Download } from 'lucide-react';
 
 export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<File[] | File | null>(null);
+  const [retrievalPages, setRetrievalPages] = useState<File[][]>([[], [], []]);
   const [config, setConfig] = useState<QuizConfig>({
     questionCount: 10,
     questionType: 'MULTIPLE_CHOICE',
@@ -58,15 +59,19 @@ export default function Home() {
   const handleGenerate = async () => {
     let pendingJobId: string | undefined;
     setErrorCode('');
-    if (!uploadedFiles) {
+    if (!isRetrieval && !uploadedFiles) {
       setError(isRetrieval ? 'Please upload 3 images (one for each topic)' : 'Please upload 1 to 10 pages for one mini quiz');
       return;
     }
 
-    const filesArray = Array.isArray(uploadedFiles) ? uploadedFiles : [uploadedFiles];
+    const filesArray = isRetrieval ? retrievalPages.flat() : Array.isArray(uploadedFiles) ? uploadedFiles : uploadedFiles ? [uploadedFiles] : [];
     
-    if (isRetrieval && filesArray.length !== 3) {
-      setError('Retrieval Quiz requires exactly 3 images (Topic A, B, C)');
+    if (isRetrieval && retrievalPages.some(pages => pages.length < 1 || pages.length > 3)) {
+      setError('Upload 1 to 3 pages for each topic (A, B and C).');
+      return;
+    }
+    if (isRetrieval && filesArray.reduce((sum, file) => sum + file.size, 0) > 50 * 1024 * 1024) {
+      setError('Retrieval images must total 50MB or less.');
       return;
     }
 
@@ -82,11 +87,12 @@ export default function Home() {
 
     try {
       if (config.quizType === 'retrieval') {
-        // Use R2 workflow for retrieval quizzes (3 images)
+        // Keep the pages for each topic together and in upload order.
         const formData = new FormData();
         filesArray.forEach((file) => {
           formData.append('images', file);
         });
+        formData.append('topicPageCounts', JSON.stringify(retrievalPages.map(pages => pages.length)));
         formData.append('educationLevel', config.educationLevel);
 
         const response = await fetch('/api/generate-questions-r2', {
@@ -224,13 +230,20 @@ export default function Home() {
                 <span className="text-blue-600">📤</span>
                 Upload Study Materials
               </h2>
-              <ImageUploader 
+              {isRetrieval ? <div className="space-y-6">
+                <p className="text-sm text-gray-600">Upload 1–3 pages per topic. Up to 10MB per image and 50MB in total.</p>
+                {['A', 'B', 'C'].map((label, index) => <div key={label}>
+                  <h3 className="font-semibold text-gray-900 mb-2">Topic {label}</h3>
+                  <ImageUploader multipleImages maxImages={3} imageLabels="pages" topicLabel={`Topic ${label}`}
+                    onImageUpload={files => setRetrievalPages(previous => previous.map((pages, i) => i === index ? (Array.isArray(files) ? files : [files]) : pages))} />
+                </div>)}
+              </div> : <ImageUploader 
                 onImageUpload={setUploadedFiles} 
                 key={config.quizType}
                 multipleImages
                 imageLabels={isRetrieval ? 'topics' : 'pages'}
                 maxImages={isRetrieval ? 3 : 10}
-              />
+              />}
             </div>
             {isRetrieval && (
               <div className="bg-blue-600 rounded-xl shadow-md p-5 text-white">
@@ -274,6 +287,7 @@ export default function Home() {
               <QuestionTypeSelector config={config} onChange={(nextConfig) => {
                 if (nextConfig.quizType !== config.quizType) {
                   setUploadedFiles(null);
+                  setRetrievalPages([[], [], []]);
                   setQuestions([]);
                   setError('');
                 }
@@ -283,7 +297,7 @@ export default function Home() {
             
             <button
               onClick={handleGenerate}
-              disabled={!uploadedFiles || loading}
+              disabled={(isRetrieval ? retrievalPages.some(pages => pages.length === 0) : !uploadedFiles) || loading}
               className="w-full px-6 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold rounded-xl hover:from-emerald-600 hover:to-emerald-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 text-lg"
             >
               {loading ? (

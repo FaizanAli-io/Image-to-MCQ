@@ -1,6 +1,7 @@
 import type { MiniQuizPDFOptions } from './mini-quiz-export';
 import { generateMiniQuizPDF } from './mini-quiz-pdf';
 import jsPDF from 'jspdf';
+import { retrievalPDF } from './retrieval-pdf';
 import { GeneratedQuestion } from './types';
 
 /**
@@ -239,6 +240,10 @@ function drawRetrievalLines(doc: jsPDF, lines: string[], x: number, y: number, m
 
 export function generatePDF(questions: GeneratedQuestion[], title: string = "Generated Quiz", options: MiniQuizPDFOptions = {}): jsPDF {
   if (questions.some(q => q.aoLevel)) return generateMiniQuizPDF(questions, options);
+  return retrievalPDF(questions, 'quiz');
+}
+
+function legacyQuizPDF(questions: GeneratedQuestion[], title: string): jsPDF {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -362,14 +367,12 @@ export function generatePDF(questions: GeneratedQuestion[], title: string = "Gen
 }
 
 export function generateAnswerKey(questions: GeneratedQuestion[]): jsPDF {
-  return appendAnswerKey(new jsPDF(), questions);
+  return retrievalPDF(questions, 'answers');
 }
 
 /** Reuse the existing question and answer layouts without changing answer mapping. */
 export function generateRetrievalPDF(questions: GeneratedQuestion[], title?: string): jsPDF {
-  const doc = generatePDF(questions, title);
-  doc.addPage();
-  return appendAnswerKey(doc, questions);
+  return retrievalPDF(questions, 'combined');
 }
 
 function appendAnswerKey(doc: jsPDF, questions: GeneratedQuestion[]): jsPDF {

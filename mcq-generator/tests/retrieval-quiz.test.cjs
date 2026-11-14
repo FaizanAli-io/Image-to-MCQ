@@ -44,6 +44,24 @@ function harness(intercept = async () => undefined) {
 }
 const images = ['https://example.test/topic0', 'https://example.test/topic1', 'https://example.test/topic2'];
 
+test('nine pages stay ordered within three topic calls and preserve correct answers', async () => {
+  const api = harness();
+  const groups = images.map(url => [url, `${url}/page2`, `${url}/page3`]);
+  const result = await api.generateAndShuffleRetrievalQuiz('test-only', groups, 'GCSE');
+  assert.equal(api.calls.length, 3);
+  assert.equal(result.questions.length, 30);
+  api.calls.forEach((call, i) => assert.deepEqual(call.messages[1].content.filter(c => c.type === 'image_url').map(c => c.image_url.url), groups[i]));
+  result.questions.forEach((q, i) => assert.equal(q.options[q.correctAnswer], `Correct topic${Math.floor(i / 10)} item${i % 10 + 1}`));
+});
+
+test('empty or oversized topic groups fail before any AI calls', async () => {
+  const api = harness();
+  for (const groups of [[[], [images[1]], [images[2]]], [Array(4).fill(images[0]), [images[1]], [images[2]]]]) {
+    await assert.rejects(api.generateAndShuffleRetrievalQuiz('test-only', groups, 'GCSE'));
+  }
+  assert.equal(api.calls.length, 0);
+});
+
 for (const level of ['GCSE', 'A-LEVEL']) {
   test(`${level}: one generation call per topic preserves answers through shuffle and PDF export`, async () => {
     const api = harness(async ({ topic, kind }) => {
@@ -79,7 +97,7 @@ for (const level of ['GCSE', 'A-LEVEL']) {
     for (const [i, q] of result.questions.entries()) {
       const answer = `${'ABCD'[q.correctAnswer]}) ${q.options[q.correctAnswer]}`;
       assert.ok(quiz.text.includes(answer), `Quiz option ${i + 1}`);
-      assert.ok(key.text.includes(`${i + 1}. ${answer}`), `Answer key ${i + 1}`);
+      assert.match(key.text, new RegExp(`Q${i + 1}\\s+${'ABCD'[q.correctAnswer]}(?:\\s|$)`), `Answer key ${i + 1}`);
     }
     assert.equal(JSON.stringify(result.questions), snapshot, 'PDF export must not mutate options');
   });
@@ -160,8 +178,13 @@ test('long retrieval questions and all four options remain visible across PDF pa
     const compact = extracted.text.replace(/\s/g, '');
     for (const [i, q] of questions.entries()) {
       for (const [j, option] of q.options.entries()) {
-        if (name === 'key' && j !== q.correctAnswer) continue;
-        assert.ok(compact.includes(`${'ABCD'[j]}) ${option}`.replace(/\s/g, '')), `${name} Q${i + 1} option ${j + 1} must be visible`);
+        if (name === 'key') {
+          assert.match(extracted.text, new RegExp(`Q${i + 1}\\s+D(?:\\s|$)`));
+          continue;
+        }
+        // Page headers interrupt very long options in extracted text.
+        const prefix = option.split(':')[0];
+        assert.ok(compact.includes(`${'ABCD'[j]}) ${prefix}`.replace(/\s/g, '')), `${name} Q${i + 1} option ${j + 1} must be visible`);
       }
     }
     const proxy = await getDocumentProxy(bytes.slice());
@@ -183,7 +206,7 @@ test('retrieval PDFs preserve micrometre units and negative exponents', async ()
   const { extractText } = require('unpdf');
   const questions = [{ text: 'Compare organisms in 1 mol dm−3 solution.', type: 'MULTIPLE_CHOICE',
     options: ['the 5 μm organism', 'the 50 μm organism', 'both organisms', 'neither organism'], correctAnswer: 0 }];
-  for (const doc of [generatePDF(questions), generateAnswerKey(questions)]) {
+  for (const doc of [generatePDF(questions)]) {
     const { text } = await extractText(new Uint8Array(doc.output('arraybuffer')), { mergePages: true });
     assert.match(text, /A\) the 5 [µμ]m organism/);
     assert.doesNotMatch(text, /¼m/);

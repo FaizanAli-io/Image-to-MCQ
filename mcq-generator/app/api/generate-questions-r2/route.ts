@@ -20,9 +20,13 @@ export async function POST(request: NextRequest) {
     const educationLevel = formData.get('educationLevel') as "GCSE" | "A-LEVEL" || "GCSE";
     
     // Validate inputs
-    if (!files || files.length !== 3) {
+    let counts: unknown = [1, 1, 1];
+    try {
+      if (formData.has('topicPageCounts')) counts = JSON.parse(String(formData.get('topicPageCounts')));
+    } catch { counts = null; }
+    if (!Array.isArray(counts) || counts.length !== 3 || !counts.every(n => Number.isInteger(n) && n >= 1 && n <= 3) || counts.reduce((sum, n) => sum + n, 0) !== files.length) {
       return NextResponse.json(
-        { error: 'Exactly 3 images are required for retrieval quiz' },
+        { error: 'Upload 1 to 3 images for each of the three retrieval topics' },
         { status: 400 }
       );
     }
@@ -32,6 +36,9 @@ export async function POST(request: NextRequest) {
     }
     if (files.some(file => !(file instanceof File) || !file.type.startsWith('image/') || file.size === 0 || file.size > 10 * 1024 * 1024)) {
       return NextResponse.json({ error: 'Each source must be a non-empty image up to 10MB' }, { status: 400 });
+    }
+    if (files.reduce((sum, file) => sum + file.size, 0) > 50 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Retrieval images must total 50MB or less' }, { status: 400 });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -83,9 +90,15 @@ export async function POST(request: NextRequest) {
     // Step 2: Generate quiz using R2 URLs
     console.log("🤖 Step 2: Generating quiz with AI...");
     
+    let offset = 0;
+    const topicImages = counts.map(count => {
+      const pages = imageUrls.slice(offset, offset + count);
+      offset += count;
+      return pages;
+    }) as [string[], string[], string[]];
     const result = await generateAndShuffleRetrievalQuiz(
       apiKey,
-      imageUrls as [string, string, string],
+      topicImages,
       educationLevel
     );
 
