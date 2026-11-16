@@ -7,6 +7,35 @@ const question = id => ({ question_id: id, text: `Question ${id}`, mark_scheme: 
 const response = (questions, finish_reason = 'stop') => ({
   choices: [{ finish_reason, message: { content: JSON.stringify({ questions }) } }],
 });
+const target = call => call.messages[1].content.split('TARGET SECTION:\n')[1].split('\n\nPAST PAPER AFTER')[0];
+
+test('Plant Responses Q15a stays with its stem across the old 10000-character boundary', async () => {
+  const stem = '15(a). Gibberellin causes stem elongation in plants.\n' + 'Context about internodal length. '.repeat(12)
+    + '\nExplain why gibberellin is classed as a plant hormone.\n[3]\n(b). A scientist investigated cabbage plants.\ni. Plot the results.\n[4]\nii. State another role.\n[1]\n';
+  const paper = '1. Earlier questions\n' + 'x'.repeat(9700) + '\n' + stem + '16. Identify two limitations.\n';
+  const { client, calls } = harness(() => response([]));
+  await extractQuestionBatches(client, '', paper, 'Mark scheme');
+  assert.equal(calls.map(target).join(''), paper);
+  assert.equal(calls.filter(call => target(call).includes(stem)).length, 1);
+  assert.equal(calls.length, 2);
+});
+
+test('truncation recovery splits between complete questions', async () => {
+  const first = '14. Evaluate the conclusion.\n' + 'context '.repeat(200) + '\n';
+  const second = '15(a). Explain hormone action.\n' + 'context '.repeat(200) + '\n(b). Plot results.\n';
+  const { client, calls } = harness(n => response([], n === 1 ? 'length' : 'stop'));
+  await extractQuestionBatches(client, '', first + second, 'marks');
+  assert.deepEqual(calls.slice(1).map(target), [first, second]);
+});
+
+test('a long question splits at a subpart and retains its parent as context', async () => {
+  const first = '15(a). Explain the results.\n' + 'context '.repeat(1100) + '\n';
+  const second = '(b). Interpret the table.\n' + 'context '.repeat(300);
+  const { client, calls } = harness(() => response([]));
+  await extractQuestionBatches(client, '', first + second, 'marks');
+  assert.deepEqual(calls.map(target), [first, second]);
+  assert.ok(calls[1].messages[1].content.includes(first));
+});
 function harness(reply) {
   const calls = [];
   return { calls, client: { chat: { completions: { create: async args => {

@@ -45,6 +45,16 @@ export async function extractQuestionBatches(
   if (sourceQuestions?.length || Buffer.byteLength(paper + markScheme, 'utf8') > 90000) {
     return extractLargeDocuments(client, paper, markScheme, sourceQuestions);
   }
+  // Prefer the start of a whole question over a character boundary inside it.
+  // Require text after the label so decimal values and table rows are not splits.
+  const mainStarts = Array.from(paper.matchAll(/^[ \t]*(?:Question[ \t]+)?\d{1,3}(?:\([a-z]\))?\.[ \t]+(?=[A-Za-z*(])/gm), match => match.index!);
+  const partStarts = Array.from(paper.matchAll(/^[ \t]*(?:\([a-z]\)\.?|\([ivx]+\)\.?|[ivx]+\.)[ \t]+(?=[A-Za-z*(])/gm), match => match.index!);
+  function boundary(start: number, end: number, preferred: number): number | undefined {
+    for (const candidates of [mainStarts, partStarts]) {
+      const available = candidates.filter(position => position > start && position < end && position <= preferred);
+      if (available.length) return available[available.length - 1];
+    }
+  }
   let requests = 0;
   async function extractRange(start: number, end: number): Promise<ExtractedQuestion[]> {
     if (++requests > 48) {
@@ -107,6 +117,12 @@ Return a JSON object with a questions array for TARGET SECTION only.` },
 
   function splitPoint(start: number, end: number): number {
     const middle = start + Math.floor((end - start) / 2);
+    // Recovery also respects question/subpart starts. Full BEFORE context above
+    // supplies the parent number when a very long question splits at (b) or ii.
+    const recognised = boundary(start, end, middle)
+      ?? mainStarts.find(position => position > middle && position < end)
+      ?? partStarts.find(position => position > middle && position < end);
+    if (recognised !== undefined) return recognised;
     const newline = paper.lastIndexOf('\n', middle);
     return newline > start + (end - start) / 4 ? newline + 1 : middle;
   }
@@ -115,8 +131,13 @@ Return a JSON object with a questions array for TARGET SECTION only.` },
   for (let start = 0; start < paper.length;) {
     let end = Math.min(start + 10000, paper.length);
     if (end < paper.length) {
-      const newline = paper.lastIndexOf('\n', end);
-      if (newline > start + 5000) end = newline + 1;
+      const recognised = boundary(start, paper.length, end);
+      if (recognised !== undefined) end = recognised;
+      else {
+        // Unrecognised layouts retain their previous bounded fallback.
+        const newline = paper.lastIndexOf('\n', end);
+        if (newline > start + 5000) end = newline + 1;
+      }
     }
     questions.push(...await extractRange(start, end));
     start = end;
