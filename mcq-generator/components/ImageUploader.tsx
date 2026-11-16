@@ -14,9 +14,10 @@ interface ImageUploaderProps {
   maxImages?: number;
   imageLabels?: 'topics' | 'pages';
   topicLabel?: string;
+  compact?: boolean;
 }
 
-export default function ImageUploader({ onImageUpload, multipleImages = false, maxImages = 3, imageLabels = 'topics', topicLabel }: ImageUploaderProps) {
+export default function ImageUploader({ onImageUpload, multipleImages = false, maxImages = 3, imageLabels = 'topics', topicLabel, compact = false }: ImageUploaderProps) {
   const uploadId = useId();
   const [previews, setPreviews] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
@@ -188,7 +189,7 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
   };
 
   return (
-    <div className="w-full">
+    <div className={`w-full ${compact ? 'compact-uploader' : ''}`}>
       {previews.length === 0 ? (
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -210,6 +211,7 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
                 <Upload className={`w-8 h-8 ${isDragging ? 'text-indigo-600' : 'text-gray-400'}`} />
               )}
             </div>
+            {!compact && <>
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
               {isProcessing ? 'Processing images...' : multipleImages ? 'Upload Multiple Images' : 'Upload Image'}
             </h3>
@@ -229,8 +231,10 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
                 </p>
               </div>
             )}
+            </>}
             <input
               type="file"
+              aria-label={topicLabel ? `Choose images for ${topicLabel}` : 'Choose quiz images'}
               accept="image/*"
               multiple={multipleImages}
               onChange={handleChange}
@@ -267,7 +271,7 @@ export default function ImageUploader({ onImageUpload, multipleImages = false, m
               </button>
             </div>
           )}
-          {multipleImages && previews.length > 1 && (
+          {!compact && multipleImages && previews.length > 1 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <p className="text-xs text-amber-800 font-medium flex items-center gap-2">
                 <span>💡</span>

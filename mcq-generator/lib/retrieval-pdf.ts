@@ -5,6 +5,7 @@ import { drawScientificLine, takeScientificLine } from './scientific-pdf';
 
 const NAVY = '#080E50', GREEN = '#285B16', BLUE = '#EAF4FA';
 const PERIODS = ['Last week', '2–3 weeks ago', '4+ weeks ago'];
+const QUESTION_LINE_HEIGHT = 4;
 
 /** Presentation only: option order and correctAnswer are consumed without mutation. */
 export function retrievalPDF(questions: GeneratedQuestion[], mode: 'quiz' | 'answers' | 'combined'): jsPDF {
@@ -54,16 +55,16 @@ export function retrievalPDF(questions: GeneratedQuestion[], mode: 'quiz' | 'ans
       if (index % 10 === 0) { if (index) page('Retrieval Quiz'); heading(group, topic); }
       const rows = [ ...lines(q.text, 169, 10, true).map(value => ({ value, bold: true })),
         ...(q.options || []).flatMap((option, i) => lines(`${'ABCD'[i]}) ${option}`, 169, 9.5).map(value => ({ value, bold: false }))) ];
-      const height = rows.length * 3.2 + 3;
+      const height = rows.length * QUESTION_LINE_HEIGHT + 3;
       if (y + height > 277 && y > 75) { page('Retrieval Quiz'); heading(group, topic, true); }
       let offset = 0;
       while (offset < rows.length) {
-        const count = Math.min(rows.length - offset, Math.max(1, Math.floor((277 - y - 3) / 3.2)));
-        doc.setFillColor(BLUE); doc.roundedRect(8, y, 194, count * 3.2 + 3, 3, 3, 'F');
+        const count = Math.min(rows.length - offset, Math.max(1, Math.floor((277 - y - 3) / QUESTION_LINE_HEIGHT)));
+        doc.setFillColor(BLUE); doc.roundedRect(8, y, 194, count * QUESTION_LINE_HEIGHT + 3, 3, 3, 'F');
         doc.setFillColor('#D5EAF7'); doc.roundedRect(10, y + 2, 11, 6, 2, 2, 'F');
         doc.setTextColor(NAVY); text(String(index + 1), 15.5, y + 6.5, 10, true);
-        rows.slice(offset, offset + count).forEach((row, i) => drawScientificLine(doc, row.value, 26, y + 4 + i * 3.2, row.bold ? 10 : 9.5, row.bold));
-        offset += count; y += count * 3.2 + 4;
+        rows.slice(offset, offset + count).forEach((row, i) => drawScientificLine(doc, row.value, 26, y + 4 + i * QUESTION_LINE_HEIGHT, row.bold ? 10 : 9.5, row.bold));
+        offset += count; y += count * QUESTION_LINE_HEIGHT + 4;
         if (offset < rows.length) { page('Retrieval Quiz'); heading(group, topic, true); }
       }
     });

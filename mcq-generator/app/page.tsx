@@ -189,8 +189,8 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-
-        <div id="quiz-setup" className="quiz-setup grid lg:grid-cols-[1fr_400px] gap-6">
+        <div id="quiz-setup" className="scroll-mt-6"><QuizGuide /></div>
+        <div className="quiz-setup grid lg:grid-cols-[1fr_400px] gap-6">
           {/* Left Column - Image Upload (65%) */}
           <div className="space-y-4">
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
@@ -198,14 +198,22 @@ export default function Home() {
                 <span className="text-blue-600">📤</span>
                 Upload Study Materials
               </h2>
-              {isRetrieval ? <div className="space-y-6">
+              {isRetrieval ? <div className="space-y-3">
                 <p className="text-sm text-gray-600">Upload 1–3 pages per topic. Up to 10MB per image and 50MB in total.</p>
-                {['A', 'B', 'C'].map((label, index) => <div key={label}>
-                  <h3 className="font-semibold text-gray-900 mb-2">Topic {label}</h3>
-                  <ImageUploader multipleImages maxImages={3} imageLabels="pages" topicLabel={`Topic ${label}`}
+                <div className="retrieval-upload-grid">
+                {['A', 'B', 'C'].map((label, index) => <div key={label} className="min-w-0">
+                  <h3 className="font-semibold text-gray-900 mb-2">
+                    Topic {label}
+                    <span className="block text-sm font-medium text-green-800">
+                      {['Revised last week', 'Revised 2–3 weeks ago', 'Revised 4+ weeks ago'][index]}
+                    </span>
+                  </h3>
+                  <ImageUploader compact multipleImages maxImages={3} imageLabels="pages" topicLabel={`Topic ${label}`}
                     onImageUpload={files => setRetrievalPages(previous => previous.map((pages, i) => i === index ? (Array.isArray(files) ? files : [files]) : pages))} />
                 </div>)}
+                </div>
               </div> : <ImageUploader 
+                compact
                 onImageUpload={setUploadedFiles} 
                 key={config.quizType}
                 multipleImages
@@ -213,21 +221,6 @@ export default function Home() {
                 maxImages={isRetrieval ? 3 : 10}
               />}
             </div>
-            {isRetrieval && (
-              <div className="bg-blue-600 rounded-xl shadow-md p-5 text-white">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl flex-shrink-0">💡</span>
-                  <div>
-                    <p className="font-bold mb-2">Retrieval Quiz Requirements:</p>
-                    <div className="space-y-1 text-sm opacity-95">
-                      <p>• <strong>Topic A:</strong> Revised last week</p>
-                      <p>• <strong>Topic B:</strong> Revised 2-3 weeks ago</p>
-                      <p>• <strong>Topic C:</strong> Revised 4+ weeks ago</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
             {!isRetrieval && (
               <div className="bg-purple-600 rounded-xl shadow-md p-5 text-white">
                 <div className="flex items-start gap-3">
@@ -282,6 +275,13 @@ export default function Home() {
                 </span>
               )}
             </button>
+            {questions.length > 0 && !loading && (
+              <button onClick={handleDownloadPDF}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3 text-white font-semibold rounded-xl hover:opacity-90 transition-opacity">
+                <Download className="w-5 h-5" />
+                {needsAO3Review ? 'Download Draft Quiz PDF' : 'Download Quiz PDF'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -333,22 +333,12 @@ export default function Home() {
                     <p className="text-sm text-gray-600">{needsAO3Review ? 'Your draft quiz is ready to review and download' : 'Your quiz is ready to download'}</p>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleDownloadPDF}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-all duration-150 shadow-md hover:shadow-lg hover:-translate-y-0.5"
-                  >
-                    <Download className="w-4 h-4" />
-                    {needsAO3Review ? 'Download Draft Quiz PDF' : 'Download Quiz PDF'}
-                  </button>
-                </div>
               </div>
             </div>
             
             <QuestionDisplay questions={questions} />
           </div>
         )}
-        <QuizGuide />
       </div>
     </main>
   );
