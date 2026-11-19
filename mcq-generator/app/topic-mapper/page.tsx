@@ -1,5 +1,7 @@
 'use client';
 
+import { initializeJobSession, jobSession, MAPPER_JOB_KEY } from '@/lib/job-session';
+
 import { useState, useEffect, useRef } from 'react';
 import { Download, Beaker, Atom, FlaskConical, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -105,11 +107,11 @@ const getSubjectSpecLabel = (level: ExamLevel, selectedSubject: SubjectKey): str
   return SUBJECTS[selectedSubject].specLabel;
 };
 
-const MAPPER_SAVED_JOB = 'pastpaperpal-mapper-job-v1';
+const MAPPER_SAVED_JOB = MAPPER_JOB_KEY;
 interface SavedMapperJob { id: string; kind: MapperJobKind; examLevel: ExamLevel; subject: SubjectKey; sourcePdfName: string | null; emailAttempted?: boolean }
 function savedMapperJob(): SavedMapperJob | null {
   try {
-    const saved = JSON.parse(localStorage.getItem(MAPPER_SAVED_JOB) || 'null');
+    const saved = JSON.parse(jobSession.getItem(MAPPER_SAVED_JOB) || 'null');
     return saved && /^[a-f0-9]{64}$/.test(saved.id) && ['extraction', 'mapping'].includes(saved.kind) && ['olevel', 'alevel'].includes(saved.examLevel) && ['biology', 'chemistry', 'physics'].includes(saved.subject) ? saved : null;
   } catch { return null; }
 }
@@ -151,9 +153,13 @@ export default function TopicMapperPage() {
   const [canReconnect, setCanReconnect] = useState(false);
 
   useEffect(() => {
-    const saved = savedMapperJob();
-    if (saved) void observeSavedJob(saved);
-    return () => activePoll.current?.abort();
+    let disposed = false;
+    void initializeJobSession().then(() => {
+      if (disposed) return;
+      const saved = savedMapperJob();
+      if (saved) void observeSavedJob(saved);
+    });
+    return () => { disposed = true; activePoll.current?.abort(); };
     // Reattach once on mount; state updates must not restart the saved job's polling loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -181,7 +187,7 @@ export default function TopicMapperPage() {
       if (controller.signal.aborted) return;
       terminal = true;
       if (job.status === 'failed') {
-        localStorage.removeItem(MAPPER_SAVED_JOB);
+        jobSession.removeItem(MAPPER_SAVED_JOB);
         throw new Error(job.error || 'Mapper processing failed.');
       }
       const data = job.result;
@@ -204,7 +210,7 @@ export default function TopicMapperPage() {
         setCurrentStep(3);
         if (!saved.emailAttempted) {
           saved.emailAttempted = true;
-          localStorage.setItem(MAPPER_SAVED_JOB, JSON.stringify(saved));
+          jobSession.setItem(MAPPER_SAVED_JOB, JSON.stringify(saved));
           await sendEmailWithExcel(reviewedResults, reviewedStats, data.questions, saved.subject, saved.sourcePdfName);
         }
       }
@@ -224,7 +230,7 @@ export default function TopicMapperPage() {
   // Reset function to start over (keeps subject selection)
   const handleReset = () => {
     activePoll.current?.abort();
-    localStorage.removeItem(MAPPER_SAVED_JOB);
+    jobSession.removeItem(MAPPER_SAVED_JOB);
     setJobMessage('');
     setCanReconnect(false);
     setPastPaperFile(null);
@@ -313,7 +319,8 @@ export default function TopicMapperPage() {
       const apiBase = await resolveTopicMapperApiBase();
       if (submission.signal.aborted) return;
       const saved: SavedMapperJob = { id: newMapperJobId(), kind: 'extraction', examLevel, subject, sourcePdfName: pastPaperFile.name };
-      localStorage.setItem(MAPPER_SAVED_JOB, JSON.stringify(saved));
+      await initializeJobSession();
+      jobSession.setItem(MAPPER_SAVED_JOB, JSON.stringify(saved));
       const formData = new FormData();
       formData.append('pastPaper', pastPaperFile);
       formData.append('markScheme', markSchemeFile);
@@ -342,7 +349,8 @@ export default function TopicMapperPage() {
     activePoll.current = submission;
     try {
       const saved: SavedMapperJob = { id: newMapperJobId(), kind: 'mapping', examLevel, subject, sourcePdfName: pastPaperFile?.name || savedMapperJob()?.sourcePdfName || null };
-      localStorage.setItem(MAPPER_SAVED_JOB, JSON.stringify(saved));
+      await initializeJobSession();
+      jobSession.setItem(MAPPER_SAVED_JOB, JSON.stringify(saved));
       const response = await fetch(mapperApiBase + '/api/map-questions', { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Mapper-Request-Id': saved.id }, body: JSON.stringify({ questions, topics }), signal: submission.signal });
       const data = await readMapperResponse<MapperJobView>(response);

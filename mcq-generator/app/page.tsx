@@ -1,5 +1,7 @@
 'use client';
 
+import { initializeJobSession, jobSession } from '@/lib/job-session';
+
 import { useEffect, useRef, useState } from 'react';
 import { pollMiniQuiz, MiniQuizJobError, PENDING_MINI_QUIZ, forgetPendingMiniQuiz } from '@/lib/mini-quiz-poll';
 import ImageUploader from '@/components/ImageUploader';
@@ -34,24 +36,27 @@ export default function Home() {
   useEffect(() => {
     const controller = new AbortController();
     polling.current = controller;
-    let id: string | null = null;
-    try { id = localStorage.getItem(PENDING_MINI_QUIZ); } catch { /* Storage can be disabled. */ }
-    if (id && /^[a-f0-9]{64}$/.test(id)) {
-      setLoading(true);
-      void pollMiniQuiz(id, controller.signal, setGenerationProgress).then(result => {
-        if (controller.signal.aborted) return;
-        setQuestions(result);
-        setConfig(previous => ({ ...previous, quizType: 'mini', educationLevel: result[0]?.educationLevel || previous.educationLevel }));
-        forgetPendingMiniQuiz(id!);
-      }).catch(err => {
-        if (controller.signal.aborted) return;
-        setError(err.message);
-        setErrorCode(err instanceof MiniQuizJobError ? err.code : '');
-        if (err instanceof MiniQuizJobError && err.terminal) {
+    void initializeJobSession().then(() => {
+      if (controller.signal.aborted) return;
+      let id: string | null = null;
+      try { id = jobSession.getItem(PENDING_MINI_QUIZ); } catch { /* Storage can be disabled. */ }
+      if (id && /^[a-f0-9]{64}$/.test(id)) {
+        setLoading(true);
+        void pollMiniQuiz(id, controller.signal, setGenerationProgress).then(result => {
+          if (controller.signal.aborted) return;
+          setQuestions(result);
+          setConfig(previous => ({ ...previous, quizType: 'mini', educationLevel: result[0]?.educationLevel || previous.educationLevel }));
           forgetPendingMiniQuiz(id!);
-        }
-      }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    }
+        }).catch(err => {
+          if (controller.signal.aborted) return;
+          setError(err.message);
+          setErrorCode(err instanceof MiniQuizJobError ? err.code : '');
+          if (err instanceof MiniQuizJobError && err.terminal) {
+            forgetPendingMiniQuiz(id!);
+          }
+        }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      }
+    });
     return () => { controller.abort(); polling.current?.abort(); };
   }, []);
 
@@ -59,6 +64,7 @@ export default function Home() {
   const needsAO3Review = questions.some(q => q.reviewStatus === 'recommended' || q.reviewStatus === 'unavailable');
 
   const handleGenerate = async () => {
+    await initializeJobSession();
     let pendingJobId: string | undefined;
     setErrorCode('');
     if (!isRetrieval && !uploadedFiles) {
@@ -129,7 +135,7 @@ export default function Home() {
         const data = await response.json();
         if (response.status === 202 && typeof data.jobId === 'string') {
           pendingJobId = data.jobId;
-          try { localStorage.setItem(PENDING_MINI_QUIZ, data.jobId); } catch {}
+          try { jobSession.setItem(PENDING_MINI_QUIZ, data.jobId); } catch {}
           polling.current?.abort();
           const controller = new AbortController();
           polling.current = controller;

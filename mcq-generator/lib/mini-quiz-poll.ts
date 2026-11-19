@@ -1,10 +1,11 @@
 import type { GeneratedQuestion } from './types';
+import { jobSession, MINI_JOB_KEY } from './job-session';
 
-export const PENDING_MINI_QUIZ = 'pendingMiniQuizJob';
+export const PENDING_MINI_QUIZ = MINI_JOB_KEY;
 export function forgetPendingMiniQuiz(id: string) {
   try {
-    // Another tab may have started a different job while this one completed.
-    if (localStorage.getItem(PENDING_MINI_QUIZ) === id) localStorage.removeItem(PENDING_MINI_QUIZ);
+    // An older observer must not clear a newer job in this tab.
+    if (jobSession.getItem(PENDING_MINI_QUIZ) === id) jobSession.removeItem(PENDING_MINI_QUIZ);
   } catch { /* Local storage may be unavailable. */ }
 }
 export class MiniQuizJobError extends Error {
