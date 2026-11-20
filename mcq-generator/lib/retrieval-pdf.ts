@@ -52,11 +52,16 @@ export function retrievalPDF(questions: GeneratedQuestion[], mode: 'quiz' | 'ans
     questions.forEach((q, index) => {
       const group = Math.floor(index / 10);
       const topic = q.topic || `Topic ${'ABC'[group % 3]}`;
-      if (index % 10 === 0) { if (index) page('Retrieval Quiz'); heading(group, topic); }
       const rows = [ ...lines(q.text, 169, 10, true).map(value => ({ value, bold: true })),
         ...(q.options || []).flatMap((option, i) => lines(`${'ABCD'[i]}) ${option}`, 169, 9.5).map(value => ({ value, bold: false }))) ];
       const height = rows.length * QUESTION_LINE_HEIGHT + 3;
-      if (y + height > 277 && y > 75) { page('Retrieval Quiz'); heading(group, topic, true); }
+      if (index % 10 === 0) {
+        const headingHeight = Math.max(13, lines(topic, 130, 12, true).length * 5 + 4) + 3;
+        // Keep the heading with its first question; oversized questions still flow across pages.
+        const firstQuestionHeight = Math.min(height, Math.max(0, 277 - 52 - headingHeight));
+        if (index && y + headingHeight + firstQuestionHeight > 277) page('Retrieval Quiz');
+        heading(group, topic);
+      } else if (y + height > 277 && y > 75) { page('Retrieval Quiz'); heading(group, topic, true); }
       let offset = 0;
       while (offset < rows.length) {
         const count = Math.min(rows.length - offset, Math.max(1, Math.floor((277 - y - 3) / QUESTION_LINE_HEIGHT)));

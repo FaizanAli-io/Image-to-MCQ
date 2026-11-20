@@ -10,6 +10,35 @@ const questions = Array.from({ length: 30 }, (_, i) => ({
   correctAnswer: i % 4,
 }));
 
+test('retrieval sections share spare page space and keep headings with the first question', async () => {
+  const { getDocumentProxy } = require('unpdf');
+  const { retrievalPDF } = loadModule('lib/retrieval-pdf.ts');
+  async function pageTexts(input) {
+    const pdf = await getDocumentProxy(new Uint8Array(retrievalPDF(input, 'quiz').output('arraybuffer')));
+    const result = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const { items } = await (await pdf.getPage(i)).getTextContent();
+      result.push(items.map(item => item.str).join(' '));
+    }
+    return result;
+  }
+  // With five lines per question, section A spills onto page 2; section B fits after it.
+  const pages = await pageTexts(questions);
+  const endA = pages.findIndex(page => page.includes('Retrieval question 10:'));
+  const startB = pages.findIndex(page => page.includes('Retrieval question 11:'));
+  assert.equal(startB, endA);
+  assert.ok(pages[startB].includes('Topic B: Osmosis'));
+
+  // Two five-line questions plus eight four-line questions leave too little room.
+  const tight = structuredClone(questions);
+  for (let i = 2; i < 10; i++) tight[i].options.pop();
+  const tightPages = await pageTexts(tight);
+  assert.ok(tightPages[0].includes('Retrieval question 10:'));
+  assert.ok(!tightPages[0].includes('Topic B: Osmosis'));
+  assert.ok(tightPages[1].includes('Topic B: Osmosis'));
+  assert.ok(tightPages[1].includes('Retrieval question 11:'));
+});
+
 test('retrieval filename includes all topic names, level and quiz type', () => {
   const { retrievalQuizFilename } = loadModule('lib/retrieval-export.ts');
   assert.equal(retrievalQuizFilename(questions, 'GCSE'), 'Cells, Osmosis, Enzymes - GCSE - Retrieval Quiz.pdf');
@@ -27,7 +56,8 @@ test('combined retrieval export preserves every question and answer page in orde
     const result = [];
     for (let i = 1; i <= pdf.numPages; i++) {
       const { items } = await (await pdf.getPage(i)).getTextContent();
-      result.push(items.map(item => item.str).join(' '));
+      // Combined documents have different footer page numbers from separate exports.
+      result.push(items.map(item => item.str).join(' ').replace(/Page \d+ of \d+/g, 'Page'));
     }
     return result;
   }
